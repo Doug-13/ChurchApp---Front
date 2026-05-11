@@ -12,7 +12,7 @@ const Stack = createNativeStackNavigator();
 export default function CellsStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="CellsList" component={CellsManageScreen} options={{ title: "Células" }} />
+      <Stack.Screen name="CellsList" component={CellsManageScreen} options={{ title: "Células", headerShown: false, }} />
       <Stack.Screen name="CellDetails" component={CellDetailsScreen} options={{ title: "Célula" }} />
       <Stack.Screen name="CellMeeting" component={CellMeetingScreen} options={{ title: "Encontro" }} />
       <Stack.Screen name="CellCreate" component={CellCreateScreen} options={{ title: "Criar" }} />

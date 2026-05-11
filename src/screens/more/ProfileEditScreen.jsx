@@ -20,7 +20,6 @@ import { getAuth, updateProfile } from "@react-native-firebase/auth";
 import { useIsFocused } from "@react-navigation/native";
 import ImagePicker from "react-native-image-crop-picker";
 
-import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 
 // ============================================================================
@@ -49,68 +48,162 @@ const DS = {
 };
 
 // ============================================================================
-// Utils (MESMA LÓGICA da tela referência)
+// Utils
 // ============================================================================
-const safeStr = (v) => {
-  const s = v === null || v === undefined ? "" : String(v);
-  return s.trim();
+const safeStr = (value) => {
+  const text = value === null || value === undefined ? "" : String(value);
+  return text.trim();
 };
 
-const normalizeDateOnlyUTCNoon = (value) => {
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return new Date(Date.UTC(2000, 0, 1, 12, 0, 0));
-  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0));
-};
+function pickFirst(...values) {
+  for (const value of values) {
+    if (value !== null && value !== undefined && safeStr(value) !== "") {
+      return value;
+    }
+  }
 
-const formatDatePTBR = (value) => {
+  return "";
+}
+
+function normalizeDateOnlyUTCNoon(value) {
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return new Date(Date.UTC(2000, 0, 1, 12, 0, 0));
+  }
+
+  return new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0)
+  );
+}
+
+function formatDatePTBR(value) {
   if (!value) return "";
+
   const safe = normalizeDateOnlyUTCNoon(value);
+
   return safe.toLocaleDateString("pt-BR", {
     timeZone: "America/Sao_Paulo",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-};
+}
 
-// "YYYY-MM-DD" OU ISO -> Date seguro (UTC noon)
-const parseBirthDate = (value) => {
+function parseBirthDate(value) {
   if (!value) return normalizeDateOnlyUTCNoon(new Date());
 
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [y, m, day] = value.split("-").map((n) => parseInt(n, 10));
-    return new Date(Date.UTC(y, m - 1, day, 12, 0, 0));
+    const [year, month, day] = value.split("-").map((item) => parseInt(item, 10));
+
+    return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  }
+
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    return normalizeDateOnlyUTCNoon(value);
   }
 
   return normalizeDateOnlyUTCNoon(value);
-};
+}
 
-// ISO seguro para salvar
-const birthDateToISO = (d) => {
-  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
-  return normalizeDateOnlyUTCNoon(d).toISOString();
-};
+function birthDateToISO(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+
+  return normalizeDateOnlyUTCNoon(date).toISOString();
+}
 
 function normalizeRole(roleRaw) {
-  const r = safeStr(roleRaw).toUpperCase();
-  const map = {
-    OWNER: { label: "Dono", icon: "crown" },
-    ADMIN: { label: "Administrador", icon: "shield-account" },
-    LEADER: { label: "Líder", icon: "account-star" },
-    MEMBER: { label: "Membro", icon: "account" },
+  const role = safeStr(roleRaw).toUpperCase();
+
+  if (role.includes("OWNER")) {
+    return {
+      label: "Dono",
+      icon: "crown",
+    };
+  }
+
+  if (role.includes("ADMIN")) {
+    return {
+      label: "Administrador",
+      icon: "shield-account",
+    };
+  }
+
+  if (role.includes("LEADER") || role.includes("LÍDER") || role.includes("LIDER")) {
+    return {
+      label: "Líder",
+      icon: "account-star",
+    };
+  }
+
+  if (role.includes("MEMBER") || role.includes("MEMBRO")) {
+    return {
+      label: "Membro",
+      icon: "account",
+    };
+  }
+
+  if (role.includes("OBREIRO") || role.includes("WORKER")) {
+    return {
+      label: "Obreiro",
+      icon: "account-hard-hat",
+    };
+  }
+
+  return {
+    label: safeStr(roleRaw) || "Membro",
+    icon: "account",
   };
-  return map[r] || { label: safeStr(roleRaw) || "—", icon: "account" };
 }
 
 function normalizeStatus(statusRaw) {
-  const s = safeStr(statusRaw).toUpperCase();
-  const map = {
-    ACTIVE: { label: "Ativo", isActive: true, icon: "check-circle" },
-    PENDING: { label: "Pendente", isActive: false, icon: "clock-outline" },
-    BLOCKED: { label: "Bloqueado", isActive: false, icon: "close-circle" },
-    INACTIVE: { label: "Inativo", isActive: false, icon: "minus-circle" },
+  const status = safeStr(statusRaw).toUpperCase();
+
+  if (
+    status.includes("ACTIVE") ||
+    status.includes("ATIVO") ||
+    status.includes("APROVADO")
+  ) {
+    return {
+      label: "Ativo",
+      isActive: true,
+      icon: "check-circle",
+    };
+  }
+
+  if (
+    status.includes("PENDING") ||
+    status.includes("PENDENTE") ||
+    status.includes("AGUARDANDO")
+  ) {
+    return {
+      label: "Pendente",
+      isActive: false,
+      icon: "clock-outline",
+    };
+  }
+
+  if (status.includes("BLOCKED") || status.includes("BLOQUEADO")) {
+    return {
+      label: "Bloqueado",
+      isActive: false,
+      icon: "close-circle",
+    };
+  }
+
+  if (status.includes("INACTIVE") || status.includes("INATIVO")) {
+    return {
+      label: "Inativo",
+      isActive: false,
+      icon: "minus-circle",
+    };
+  }
+
+  return {
+    label: safeStr(statusRaw) || "Ativo",
+    isActive: true,
+    icon: "check-circle",
   };
-  return map[s] || { label: safeStr(statusRaw) || "—", isActive: false, icon: "information" };
 }
 
 function normalizeCell(me) {
@@ -126,97 +219,106 @@ function normalizeCell(me) {
   const day =
     safeStr(raw?.day) ||
     safeStr(raw?.dia) ||
+    safeStr(raw?.meetingDay) ||
+    safeStr(raw?.meetingTime) ||
     safeStr(me?.cellDay) ||
     safeStr(me?.cell?.day) ||
     "";
 
-  return { name, day, raw };
+  return {
+    name,
+    day,
+    raw,
+  };
+}
+
+function normalizeProfileData(me, firebaseUser) {
+  const name = pickFirst(
+    me?.name,
+    me?.fullName,
+    me?.displayName,
+    firebaseUser?.displayName,
+    "Usuário"
+  );
+
+  const email = pickFirst(me?.email, firebaseUser?.email);
+
+  const photoUrl = pickFirst(
+    me?.photoUrl,
+    me?.photoURL,
+    me?.avatarUrl,
+    firebaseUser?.photoURL
+  );
+
+  const phone = pickFirst(me?.phone, me?.whatsapp, me?.cellphone, me?.mobile);
+
+  const birth = pickFirst(
+    me?.birthday,
+    me?.birthDate,
+    me?.birthdate,
+    me?.birthDay
+  );
+
+  const city = pickFirst(me?.city, me?.addressCity);
+
+  const neighborhood = pickFirst(
+    me?.neighborhood,
+    me?.addressNeighborhood,
+    me?.district
+  );
+
+  const street = pickFirst(me?.street, me?.addressStreet);
+
+  const number = pickFirst(me?.number, me?.addressNumber);
+
+  const roleNorm = normalizeRole(me?.role);
+  const statusNorm = normalizeStatus(me?.status);
+  const cell = normalizeCell(me);
+
+  return {
+    id: pickFirst(me?.id, me?.userId, firebaseUser?.uid),
+    name: safeStr(name),
+    email: safeStr(email),
+    photoUrl: safeStr(photoUrl),
+    phone: safeStr(phone),
+    birth: birth || null,
+    city: safeStr(city),
+    neighborhood: safeStr(neighborhood),
+    street: safeStr(street),
+    number: safeStr(number),
+    role: roleNorm.label,
+    roleIcon: roleNorm.icon,
+    status: statusNorm.label,
+    statusIcon: statusNorm.icon,
+    isActive: statusNorm.isActive,
+    cell,
+  };
+}
+
+function makeSnapshot({
+  name,
+  phone,
+  photoUrl,
+  dateOfBirth,
+  city,
+  neighborhood,
+  street,
+  number,
+}) {
+  return {
+    name: safeStr(name),
+    phone: safeStr(phone),
+    photoUrl: safeStr(photoUrl),
+    birthday: birthDateToISO(dateOfBirth),
+    city: safeStr(city),
+    neighborhood: safeStr(neighborhood),
+    street: safeStr(street),
+    number: safeStr(number),
+  };
 }
 
 // ============================================================================
-// Fetch helper
-// ============================================================================
-async function authedFetch(path, { method = "GET", body } = {}, authCtx) {
-  const firebaseToken =
-    (await getAuth().currentUser?.getIdToken?.()) || null;
-
-  const ctxToken =
-    authCtx?.token ||
-    (typeof authCtx?.getToken === "function" ? await authCtx.getToken() : null) ||
-    null;
-
-  const token = ctxToken || firebaseToken;
-
-  const url = `${API_BASE_URL}${path}`;
-
-  const headers = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  // ✅ LOG REQUEST
-  console.log("🛰️ [authedFetch] REQUEST:", {
-    method,
-    url,
-    hasToken: !!token,
-    tokenLen: token ? String(token).length : 0,
-    body,
-  });
-
-  let res;
-  try {
-    res = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch (netErr) {
-    console.log("❌ [authedFetch] NETWORK ERROR:", {
-      url,
-      method,
-      message: netErr?.message,
-      name: netErr?.name,
-    });
-    throw netErr;
-  }
-
-  const rawText = await res.text();
-  let data = null;
-
-  try {
-    data = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    data = rawText || null;
-  }
-
-  // ✅ LOG RESPONSE
-  console.log("📩 [authedFetch] RESPONSE:", {
-    method,
-    url,
-    status: res.status,
-    ok: res.ok,
-    data,
-  });
-
-  if (!res.ok) {
-    const msg =
-      (data && (data.message || data.error)) ||
-      `Erro ao comunicar com o servidor (${res.status}).`;
-
-    const err = new Error(
-      typeof msg === "string" ? msg : JSON.stringify(msg)
-    );
-    err.status = res.status;
-    err.payload = data;
-    err.url = url;
-    err.method = method;
-    throw err;
-  }
-
-  return data;
-}
-
-
-// ============================================================================
-// UI Helpers (sem Paper)
+// UI Helpers
 // ============================================================================
 function CardView({ children, style }) {
   return <View style={[styles.cardBase, style]}>{children}</View>;
@@ -224,8 +326,22 @@ function CardView({ children, style }) {
 
 function IconCircle({ name, size = 44, bg, color = "#fff" }) {
   return (
-    <View style={[styles.iconCircle, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
-      <MaterialCommunityIcons name={name} size={Math.round(size * 0.52)} color={color} />
+    <View
+      style={[
+        styles.iconCircle,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: bg,
+        },
+      ]}
+    >
+      <MaterialCommunityIcons
+        name={name}
+        size={Math.round(size * 0.52)}
+        color={color}
+      />
     </View>
   );
 }
@@ -233,17 +349,53 @@ function IconCircle({ name, size = 44, bg, color = "#fff" }) {
 function Chip({ icon, label, tone = "default", style }) {
   const toneStyle =
     tone === "success"
-      ? { backgroundColor: "#EAF8F0", borderColor: "#CDEEDD", textColor: DS.colors.success }
+      ? {
+          backgroundColor: "#EAF8F0",
+          borderColor: "#CDEEDD",
+          textColor: DS.colors.success,
+        }
       : tone === "danger"
-        ? { backgroundColor: "#FFF1F1", borderColor: "#FFD4D4", textColor: DS.colors.danger }
-        : tone === "warning"
-          ? { backgroundColor: "#FFF7E7", borderColor: "#FFE2A8", textColor: DS.colors.warning }
-          : { backgroundColor: DS.colors.tintBlue, borderColor: "#CDECF5", textColor: DS.colors.primaryDark };
+      ? {
+          backgroundColor: "#FFF1F1",
+          borderColor: "#FFD4D4",
+          textColor: DS.colors.danger,
+        }
+      : tone === "warning"
+      ? {
+          backgroundColor: "#FFF7E7",
+          borderColor: "#FFE2A8",
+          textColor: DS.colors.warning,
+        }
+      : {
+          backgroundColor: DS.colors.tintBlue,
+          borderColor: "#CDECF5",
+          textColor: DS.colors.primaryDark,
+        };
 
   return (
-    <View style={[styles.chip, { backgroundColor: toneStyle.backgroundColor, borderColor: toneStyle.borderColor }, style]}>
-      {!!icon && <MaterialCommunityIcons name={icon} size={16} color={toneStyle.textColor} />}
-      <Text style={[styles.chipText, { color: toneStyle.textColor }]} numberOfLines={1}>
+    <View
+      style={[
+        styles.chip,
+        {
+          backgroundColor: toneStyle.backgroundColor,
+          borderColor: toneStyle.borderColor,
+        },
+        style,
+      ]}
+    >
+      {!!icon && (
+        <MaterialCommunityIcons name={icon} size={16} color={toneStyle.textColor} />
+      )}
+
+      <Text
+        style={[
+          styles.chipText,
+          {
+            color: toneStyle.textColor,
+          },
+        ]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </View>
@@ -256,12 +408,21 @@ function PrimaryButton({ title, onPress, disabled, loading, style }) {
       onPress={disabled ? null : onPress}
       style={({ pressed }) => [
         styles.btnPrimary,
-        disabled && { opacity: 0.6 },
-        pressed && !disabled && { opacity: 0.92 },
+        disabled && {
+          opacity: 0.6,
+        },
+        pressed &&
+          !disabled && {
+            opacity: 0.92,
+          },
         style,
       ]}
     >
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>{title}</Text>}
+      {loading ? (
+        <ActivityIndicator color="#fff" />
+      ) : (
+        <Text style={styles.btnPrimaryText}>{title}</Text>
+      )}
     </Pressable>
   );
 }
@@ -272,8 +433,13 @@ function OutlineButton({ title, onPress, disabled, style }) {
       onPress={disabled ? null : onPress}
       style={({ pressed }) => [
         styles.btnOutline,
-        disabled && { opacity: 0.6 },
-        pressed && !disabled && { opacity: 0.86 },
+        disabled && {
+          opacity: 0.6,
+        },
+        pressed &&
+          !disabled && {
+            opacity: 0.86,
+          },
         style,
       ]}
     >
@@ -295,13 +461,17 @@ function SimpleField({
   return (
     <View style={{ gap: 8 }}>
       <Text style={styles.label}>{label}</Text>
+
       <View style={styles.inputWrap}>
         <TextInput
           value={value}
-          onChangeText={(t) => {
-            setValue(t);
+          onChangeText={(text) => {
+            setValue(text);
             setSaved(false);
-            if (error) setError("");
+
+            if (error) {
+              setError("");
+            }
           }}
           placeholder={`Digite ${label.toLowerCase()}`}
           placeholderTextColor={DS.colors.textMuted}
@@ -321,109 +491,253 @@ export default function ProfileEditScreen({ navigation }) {
   const authCtx = useAuth();
   const isFocused = useIsFocused();
   const firebaseUser = getAuth().currentUser;
-
   const mounted = useRef(true);
 
-  const initial = useMemo(() => {
-    const me = authCtx?.me || authCtx?.user || null;
+  const fallbackProfile = useMemo(() => {
+    return normalizeProfileData(authCtx?.me || authCtx?.user || {}, firebaseUser);
+  }, [
+    authCtx?.me,
+    authCtx?.user,
+    firebaseUser?.displayName,
+    firebaseUser?.email,
+    firebaseUser?.photoURL,
+    firebaseUser?.uid,
+  ]);
 
-    const name = safeStr(me?.name) || safeStr(firebaseUser?.displayName) || "Usuário";
-    const email = safeStr(me?.email) || safeStr(firebaseUser?.email) || "";
-    const photoUrl = safeStr(me?.photoUrl) || safeStr(firebaseUser?.photoURL) || "";
+  const [initialSnapshot, setInitialSnapshot] = useState(() => ({
+    name: fallbackProfile.name,
+    phone: fallbackProfile.phone,
+    photoUrl: fallbackProfile.photoUrl,
+    birthday: birthDateToISO(parseBirthDate(fallbackProfile.birth || Date.now())),
+    city: fallbackProfile.city,
+    neighborhood: fallbackProfile.neighborhood,
+    street: fallbackProfile.street,
+    number: fallbackProfile.number,
+  }));
 
-    const phone = safeStr(me?.phone);
-
-    const birth = me?.birthday || me?.birthDate || null;
-
-    const city = safeStr(me?.city) || safeStr(me?.addressCity);
-    const neighborhood = safeStr(me?.neighborhood) || safeStr(me?.addressNeighborhood);
-    const street = safeStr(me?.street) || safeStr(me?.addressStreet);
-    const number = safeStr(me?.number) || safeStr(me?.addressNumber);
-
-    const roleNorm = normalizeRole(me?.role);
-    const statusNorm = normalizeStatus(me?.status);
-    const cell = normalizeCell(me);
-
-    return {
-      name,
-      email,
-      photoUrl,
-      phone,
-      birth,
-      city,
-      neighborhood,
-      street,
-      number,
-      role: roleNorm.label,
-      roleIcon: roleNorm.icon,
-      status: statusNorm.label,
-      isActive: statusNorm.isActive,
-      cell,
-    };
-  }, [authCtx?.me, authCtx?.user, firebaseUser?.displayName, firebaseUser?.email, firebaseUser?.photoURL]);
-
-  // Editable
-  const [name, setName] = useState(initial.name);
-  const [phone, setPhone] = useState(initial.phone);
-
-  // FOTO: pode ser URL (https://) OU caminho local (file path) do picker
-  const [photoUrlOrPath, setPhotoUrlOrPath] = useState(initial.photoUrl);
-
-  // DATA
-  const [dateOfBirth, setDateOfBirth] = useState(() => parseBirthDate(initial.birth));
+  const [name, setName] = useState(fallbackProfile.name);
+  const [phone, setPhone] = useState(fallbackProfile.phone);
+  const [photoUrlOrPath, setPhotoUrlOrPath] = useState(fallbackProfile.photoUrl);
+  const [dateOfBirth, setDateOfBirth] = useState(() =>
+    parseBirthDate(fallbackProfile.birth || Date.now())
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Endereço separado
-  const [city, setCity] = useState(initial.city);
-  const [neighborhood, setNeighborhood] = useState(initial.neighborhood);
-  const [street, setStreet] = useState(initial.street);
-  const [number, setNumber] = useState(initial.number);
+  const [city, setCity] = useState(fallbackProfile.city);
+  const [neighborhood, setNeighborhood] = useState(fallbackProfile.neighborhood);
+  const [street, setStreet] = useState(fallbackProfile.street);
+  const [number, setNumber] = useState(fallbackProfile.number);
 
-  // Read-only
-  const [email] = useState(initial.email);
-  const [roleLabel, setRoleLabel] = useState(initial.role);
-  const [roleIcon, setRoleIcon] = useState(initial.roleIcon);
-  const [statusLabel, setStatusLabel] = useState(initial.status);
-  const [isActive, setIsActive] = useState(initial.isActive);
-  const [cell, setCell] = useState(initial.cell);
+  const [email, setEmail] = useState(fallbackProfile.email);
+  const [roleLabel, setRoleLabel] = useState(fallbackProfile.role);
+  const [roleIcon, setRoleIcon] = useState(fallbackProfile.roleIcon);
+  const [statusLabel, setStatusLabel] = useState(fallbackProfile.status);
+  const [statusIcon, setStatusIcon] = useState(fallbackProfile.statusIcon);
+  const [isActive, setIsActive] = useState(fallbackProfile.isActive);
+  const [cell, setCell] = useState(fallbackProfile.cell);
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
-  // =========================
-  // Upload Helpers (IGUAL ao seu exemplo)
-  // =========================
+  const applyProfileToState = useCallback((profile) => {
+    const birthDate = parseBirthDate(profile.birth || Date.now());
+
+    setName(profile.name);
+    setEmail(profile.email);
+    setPhone(profile.phone);
+    setPhotoUrlOrPath(profile.photoUrl);
+    setDateOfBirth(birthDate);
+    setShowDatePicker(false);
+
+    setCity(profile.city);
+    setNeighborhood(profile.neighborhood);
+    setStreet(profile.street);
+    setNumber(profile.number);
+
+    setRoleLabel(profile.role);
+    setRoleIcon(profile.roleIcon);
+    setStatusLabel(profile.status);
+    setStatusIcon(profile.statusIcon);
+    setIsActive(profile.isActive);
+    setCell(profile.cell);
+
+    setInitialSnapshot({
+      name: profile.name,
+      phone: profile.phone,
+      photoUrl: profile.photoUrl,
+      birthday: birthDateToISO(birthDate),
+      city: profile.city,
+      neighborhood: profile.neighborhood,
+      street: profile.street,
+      number: profile.number,
+    });
+  }, []);
+
+  const loadProfile = useCallback(async () => {
+    setError("");
+    setSaved(false);
+    setLoadingProfile(true);
+
+    try {
+      console.log("🟦 [ProfileEditScreen] GET /users/me");
+
+      const meData = await authCtx.apiFetchAuth("/users/me", {
+        method: "GET",
+      });
+
+      console.log("🟩 [ProfileEditScreen] /users/me:", meData);
+
+      const normalized = normalizeProfileData(meData, getAuth().currentUser);
+
+      if (!mounted.current) return;
+
+      applyProfileToState(normalized);
+    } catch (err) {
+      console.log("🟥 [ProfileEditScreen] erro ao carregar perfil:", {
+        code: err?.code,
+        message: err?.message,
+        stack: err?.stack,
+      });
+
+      if (!mounted.current) return;
+
+      const normalizedFallback = normalizeProfileData(
+        authCtx?.me || authCtx?.user || {},
+        getAuth().currentUser
+      );
+
+      applyProfileToState(normalizedFallback);
+
+      setError(err?.message || "Não foi possível carregar seu perfil.");
+    } finally {
+      if (mounted.current) {
+        setLoadingProfile(false);
+      }
+    }
+  }, [applyProfileToState, authCtx]);
+
+  useEffect(() => {
+    mounted.current = true;
+
+    if (isFocused) {
+      loadProfile();
+    }
+
+    return () => {
+      mounted.current = false;
+    };
+  }, [isFocused, loadProfile]);
+
+  const statusTone = isActive
+    ? "success"
+    : statusLabel === "Pendente"
+    ? "warning"
+    : "danger";
+
+  const currentSnapshot = useMemo(() => {
+    return makeSnapshot({
+      name,
+      phone,
+      photoUrl: photoUrlOrPath,
+      dateOfBirth,
+      city,
+      neighborhood,
+      street,
+      number,
+    });
+  }, [name, phone, photoUrlOrPath, dateOfBirth, city, neighborhood, street, number]);
+
+  const dirty = useMemo(() => {
+    return (
+      currentSnapshot.name !== initialSnapshot.name ||
+      currentSnapshot.phone !== initialSnapshot.phone ||
+      currentSnapshot.photoUrl !== initialSnapshot.photoUrl ||
+      currentSnapshot.birthday !== initialSnapshot.birthday ||
+      currentSnapshot.city !== initialSnapshot.city ||
+      currentSnapshot.neighborhood !== initialSnapshot.neighborhood ||
+      currentSnapshot.street !== initialSnapshot.street ||
+      currentSnapshot.number !== initialSnapshot.number
+    );
+  }, [currentSnapshot, initialSnapshot]);
+
+  const validate = useCallback(() => {
+    const cleanName = safeStr(name);
+
+    if (cleanName.length < 2) {
+      return "Informe um nome válido.";
+    }
+
+    if (safeStr(phone) && safeStr(phone).length < 8) {
+      return "Informe um telefone válido.";
+    }
+
+    return "";
+  }, [name, phone]);
+
   const deleteOldPhotoIfNeeded = useCallback(async (oldUrl, newLocalPathOrUrl) => {
     if (!oldUrl) return;
 
-    if (newLocalPathOrUrl && newLocalPathOrUrl !== oldUrl && /^https?:\/\//i.test(oldUrl)) {
-      try {
-        await storage().refFromURL(oldUrl).delete();
-      } catch { }
+    const oldIsUrl = /^https?:\/\//i.test(oldUrl);
+    const newIsSameUrl = oldUrl === newLocalPathOrUrl;
+    const isFirebaseStorageUrl = oldUrl.includes("firebasestorage.googleapis.com");
+
+    if (!oldIsUrl || newIsSameUrl || !isFirebaseStorageUrl) return;
+
+    try {
+      console.log("🟨 [Storage] tentando remover foto antiga:", oldUrl);
+
+      await storage().refFromURL(oldUrl).delete();
+
+      console.log("🗑️ [Storage] foto antiga removida.");
+    } catch (err) {
+      console.log("⚠️ [Storage] não foi possível remover foto antiga. Ignorado:", {
+        code: err?.code,
+        message: err?.message,
+      });
     }
   }, []);
 
   const uploadNewPhotoIfNeeded = useCallback(async (localPathOrUrl, uid) => {
     if (!localPathOrUrl) return null;
 
-    if (/^https?:\/\//i.test(localPathOrUrl)) return localPathOrUrl;
+    if (/^https?:\/\//i.test(localPathOrUrl)) {
+      console.log("ℹ️ [Storage] imagem já é URL, upload ignorado:", localPathOrUrl);
+      return localPathOrUrl;
+    }
+
+    if (!uid) {
+      throw new Error("Usuário Firebase sem UID. Faça login novamente.");
+    }
 
     let uploadUri = localPathOrUrl;
+
     if (Platform.OS === "ios" && uploadUri.startsWith("file://")) {
       uploadUri = uploadUri.replace("file://", "");
     }
 
-    const fileName = `${uid}-${Date.now()}.jpg`;
-    const ref = storage().ref(`images/users/${fileName}`);
-    await ref.putFile(uploadUri);
-    return await ref.getDownloadURL();
+    const fileName = `profile-${Date.now()}.jpg`;
+    const storagePath = `images/users/${uid}/${fileName}`;
+
+    console.log("🟦 [Storage] preparando upload da foto");
+    console.log("🟦 [Storage] uid:", uid);
+    console.log("🟦 [Storage] uploadUri:", uploadUri);
+    console.log("🟦 [Storage] storagePath:", storagePath);
+
+    const ref = storage().ref(storagePath);
+
+    await ref.putFile(uploadUri, {
+      contentType: "image/jpeg",
+    });
+
+    const downloadUrl = await ref.getDownloadURL();
+
+    console.log("🟩 [Storage] nova foto enviada:", downloadUrl);
+
+    return downloadUrl;
   }, []);
 
-  // =========================
-  // Foto: abrir galeria + crop circular
-  // =========================
   const handleImagePick = useCallback(() => {
     ImagePicker.openPicker({
       width: 600,
@@ -435,116 +749,38 @@ export default function ProfileEditScreen({ navigation }) {
       includeBase64: false,
     })
       .then((image) => {
+        console.log("🟦 [ImagePicker] imagem selecionada:", {
+          path: image?.path,
+          mime: image?.mime,
+          size: image?.size,
+          width: image?.width,
+          height: image?.height,
+        });
+
         setPhotoUrlOrPath(image.path);
         setSaved(false);
-        if (error) setError("");
+
+        if (error) {
+          setError("");
+        }
       })
-      .catch((e) => {
-        if (e?.code !== "E_PICKER_CANCELLED") {
-          Alert.alert("Erro", "Não foi possível selecionar a imagem");
+      .catch((err) => {
+        console.log("🟨 [ImagePicker] seleção cancelada ou falhou:", {
+          code: err?.code,
+          message: err?.message,
+        });
+
+        if (err?.code !== "E_PICKER_CANCELLED") {
+          Alert.alert("Erro", "Não foi possível selecionar a imagem.");
         }
       });
   }, [error]);
 
-  // =========================
-  // Load profile do backend
-  // =========================
-  const loadProfile = useCallback(async () => {
-    setError("");
-    setSaved(false);
-    setLoadingProfile(true);
-
-    try {
-      const me = await authedFetch("/users/me", { method: "GET" }, authCtx);
-
-      setName(safeStr(me?.name));
-      setPhone(safeStr(me?.phone));
-      setPhotoUrlOrPath(safeStr(me?.photoUrl) || "");
-
-      const birth = me?.birthday || me?.birthDate || null;
-      setDateOfBirth(parseBirthDate(birth || Date.now()));
-
-      setCity(safeStr(me?.city) || safeStr(me?.addressCity));
-      setNeighborhood(safeStr(me?.neighborhood) || safeStr(me?.addressNeighborhood));
-      setStreet(safeStr(me?.street) || safeStr(me?.addressStreet));
-      setNumber(safeStr(me?.number) || safeStr(me?.addressNumber));
-
-      const roleNorm = normalizeRole(me?.role);
-      const statusNorm = normalizeStatus(me?.status);
-      setRoleLabel(roleNorm.label);
-      setRoleIcon(roleNorm.icon);
-      setStatusLabel(statusNorm.label);
-      setIsActive(statusNorm.isActive);
-      setCell(normalizeCell(me));
-    } catch (e) {
-      setError(e?.message || "Não foi possível carregar seu perfil.");
-    } finally {
-      if (mounted.current) setLoadingProfile(false);
-    }
-  }, [authCtx]);
-
-  useEffect(() => {
-    mounted.current = true;
-
-    if (isFocused) {
-      setName(initial.name);
-      setPhone(initial.phone);
-      setPhotoUrlOrPath(initial.photoUrl);
-
-      setDateOfBirth(parseBirthDate(initial.birth || Date.now()));
-      setShowDatePicker(false);
-
-      setCity(initial.city);
-      setNeighborhood(initial.neighborhood);
-      setStreet(initial.street);
-      setNumber(initial.number);
-
-      setRoleLabel(initial.role);
-      setRoleIcon(initial.roleIcon);
-      setStatusLabel(initial.status);
-      setIsActive(initial.isActive);
-      setCell(initial.cell);
-
-      setError("");
-      setSaved(false);
-
-      loadProfile();
-    }
-
-    return () => {
-      mounted.current = false;
-    };
-  }, [isFocused]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const statusTone = isActive ? "success" : statusLabel === "Pendente" ? "warning" : "danger";
-
-  const dirty = useMemo(() => {
-    const a = (s) => safeStr(s);
-    return (
-      a(name) !== a(initial.name) ||
-      a(phone) !== a(initial.phone) ||
-      a(photoUrlOrPath) !== a(initial.photoUrl) ||
-      a(city) !== a(initial.city) ||
-      a(neighborhood) !== a(initial.neighborhood) ||
-      a(street) !== a(initial.street) ||
-      a(number) !== a(initial.number) ||
-      birthDateToISO(dateOfBirth) !== birthDateToISO(parseBirthDate(initial.birth || Date.now()))
-    );
-  }, [name, phone, photoUrlOrPath, city, neighborhood, street, number, dateOfBirth, initial]);
-
-  const validate = useCallback(() => {
-    const n = safeStr(name);
-    if (n.length < 2) return "Informe um nome válido.";
-    return "";
-  }, [name]);
-
-  // =========================
-  // Submit
-  // =========================
   const onSave = useCallback(async () => {
-    const msg = validate();
-    if (msg) {
-      setError(msg);
+    const message = validate();
+
+    if (message) {
+      setError(message);
       return;
     }
 
@@ -554,187 +790,230 @@ export default function ProfileEditScreen({ navigation }) {
 
     try {
       const user = getAuth().currentUser;
-      if (!user?.uid) throw new Error("Usuário não autenticado.");
 
-      console.log("🧩 [ProfileEdit] API_BASE_URL:", API_BASE_URL);
-      console.log("🧩 [ProfileEdit] Firebase UID:", user.uid);
-
-      const oldPhotoUrl = initial.photoUrl; // URL anterior (se houver)
-      const newPhotoLocalOrUrl = photoUrlOrPath; // URL ou path local
-
-      console.log("🖼️ [ProfileEdit] Foto (antes):", {
-        oldPhotoUrl,
-        newPhotoLocalOrUrl,
-        isOldUrl: /^https?:\/\//i.test(oldPhotoUrl || ""),
-        isNewUrl: /^https?:\/\//i.test(newPhotoLocalOrUrl || ""),
+      console.log("🔥 [Firebase Auth] currentUser:", {
+        uid: user?.uid,
+        email: user?.email,
+        displayName: user?.displayName,
+        photoURL: user?.photoURL,
+        isAnonymous: user?.isAnonymous,
       });
 
-      // 1) Foto: deleta antiga se necessário + sobe nova se for path local
-      await deleteOldPhotoIfNeeded(oldPhotoUrl, newPhotoLocalOrUrl);
-      const imageUrl = await uploadNewPhotoIfNeeded(newPhotoLocalOrUrl, user.uid);
+      if (!user?.uid) {
+        throw new Error("Usuário não autenticado no Firebase. Faça login novamente.");
+      }
 
-      console.log("🖼️ [ProfileEdit] Foto (depois upload):", {
-        imageUrl,
-        finalPhotoUrl: imageUrl ?? oldPhotoUrl ?? null,
-      });
+      const oldPhotoUrl = initialSnapshot.photoUrl;
+      const selectedPhoto = photoUrlOrPath;
 
-      // 2) Firebase Auth: atualiza displayName/photoURL
+      let finalPhotoUrl = selectedPhoto || null;
+
+      if (selectedPhoto && !/^https?:\/\//i.test(selectedPhoto)) {
+        try {
+          finalPhotoUrl = await uploadNewPhotoIfNeeded(selectedPhoto, user.uid);
+        } catch (uploadErr) {
+          console.log("🟥 [Storage] Upload falhou:", {
+            code: uploadErr?.code,
+            message: uploadErr?.message,
+            nativeErrorMessage: uploadErr?.nativeErrorMessage,
+            serverResponse: uploadErr?.serverResponse,
+            stack: uploadErr?.stack,
+          });
+
+          if (uploadErr?.code === "storage/unauthorized") {
+            throw new Error(
+              "Não foi possível enviar a foto. O Firebase Storage bloqueou o envio. Verifique as regras do Storage."
+            );
+          }
+
+          throw new Error("Não foi possível enviar a foto. Tente novamente.");
+        }
+      }
+
+      void (async () => {
+        try {
+          await deleteOldPhotoIfNeeded(oldPhotoUrl, finalPhotoUrl);
+        } catch (err) {
+          console.log("⚠️ [Storage] delete antigo ignorado:", {
+            code: err?.code,
+            message: err?.message,
+          });
+        }
+      })();
+
       try {
         await updateProfile(user, {
           displayName: safeStr(name),
-          photoURL: imageUrl ?? oldPhotoUrl ?? null,
+          photoURL: finalPhotoUrl || null,
         });
-        console.log("✅ [ProfileEdit] Firebase updateProfile OK");
-      } catch (e) {
-        console.log("⚠️ [ProfileEdit] Firebase updateProfile FAIL:", e?.message);
+
+        console.log("✅ [Firebase Auth] updateProfile OK");
+      } catch (err) {
+        console.log("⚠️ [Firebase Auth] updateProfile falhou. Ignorado:", {
+          code: err?.code,
+          message: err?.message,
+        });
       }
 
-      // 3) Payload para backend (o que vai no PATCH)
       const payload = {
         name: safeStr(name),
         phone: safeStr(phone) || null,
-        photoUrl: imageUrl ?? oldPhotoUrl ?? null,
-
-        // aniversário em ISO "seguro"
+        photoUrl: finalPhotoUrl,
         birthday: birthDateToISO(dateOfBirth),
-
-        // endereço desmembrado
         city: safeStr(city) || null,
         neighborhood: safeStr(neighborhood) || null,
         street: safeStr(street) || null,
         number: safeStr(number) || null,
       };
 
-      console.log("🧾 [ProfileEdit] payload PATCH /users/me:", payload);
+      console.log("🟦 [ProfileEditScreen] PATCH /users/me payload:", payload);
 
-      // 4) (opcional para debug) testar GET antes do PATCH
-      try {
-        const meDebug = await authedFetch("/users/me", { method: "GET" }, authCtx);
-        console.log("✅ [ProfileEdit] GET /users/me OK (debug):", meDebug);
-      } catch (e) {
-        console.log("❌ [ProfileEdit] GET /users/me FAIL (debug):", {
-          message: e?.message,
-          status: e?.status,
-          url: e?.url,
-          payload: e?.payload,
-        });
+      const updated = await authCtx.apiFetchAuth("/users/me", {
+        method: "PATCH",
+        body: payload,
+      });
+
+      console.log("🟩 [ProfileEditScreen] /users/me atualizado:", updated);
+
+      setPhotoUrlOrPath(finalPhotoUrl || "");
+
+      const updatedProfile = normalizeProfileData(
+        {
+          ...(updated || {}),
+          photoUrl: finalPhotoUrl,
+          name: payload.name,
+          phone: payload.phone,
+          birthday: payload.birthday,
+          city: payload.city,
+          neighborhood: payload.neighborhood,
+          street: payload.street,
+          number: payload.number,
+        },
+        getAuth().currentUser
+      );
+
+      applyProfileToState(updatedProfile);
+
+      if (typeof authCtx?.refreshMe === "function") {
+        authCtx.refreshMe().catch((err) =>
+          console.log("⚠️ [ProfileEditScreen] refreshMe falhou. Ignorado:", {
+            code: err?.code,
+            message: err?.message,
+          })
+        );
       }
-
-      // 5) PATCH no backend (com logs de erro completos)
-      let result = null;
-      try {
-        result = await authedFetch("/users/me", { method: "PATCH", body: payload }, authCtx);
-        console.log("✅ [ProfileEdit] PATCH /users/me OK:", result);
-      } catch (e) {
-        console.log("❌ [ProfileEdit] PATCH /users/me FAIL:", {
-          message: e?.message,
-          status: e?.status,
-          url: e?.url,
-          method: e?.method,
-          payload: e?.payload,
-        });
-        throw e;
-      }
-
-      // 6) Atualiza estado local com URL final (não manter path local após salvar)
-      setPhotoUrlOrPath(payload.photoUrl || "");
 
       setSaved(true);
 
-      // 7) Atualiza AuthContext (se existir)
-      if (typeof authCtx?.refreshMe === "function") {
-        try {
-          await authCtx.refreshMe();
-          console.log("✅ [ProfileEdit] authCtx.refreshMe OK");
-        } catch (e) {
-          console.log("⚠️ [ProfileEdit] authCtx.refreshMe FAIL:", e?.message);
-        }
-      }
-
-      Alert.alert("Sucesso", "Dados atualizados com sucesso!");
-      navigation?.goBack?.();
-    } catch (e) {
-      console.log("❌ [ProfileEdit] Erro ao salvar (catch geral):", {
-        message: e?.message,
-        status: e?.status,
-        url: e?.url,
-        payload: e?.payload,
+      Alert.alert("Sucesso", "Dados atualizados com sucesso!", [
+        {
+          text: "OK",
+          onPress: () => navigation?.goBack?.(),
+        },
+      ]);
+    } catch (err) {
+      console.log("🟥 [ProfileEditScreen] erro ao salvar:", {
+        code: err?.code,
+        message: err?.message,
+        stack: err?.stack,
       });
 
-      setError(e?.message || "Houve um problema ao atualizar seus dados.");
-      Alert.alert("Erro", e?.message || "Houve um problema ao atualizar seus dados.");
+      setError(err?.message || "Houve um problema ao atualizar seus dados.");
+
+      Alert.alert(
+        "Erro",
+        err?.message || "Houve um problema ao atualizar seus dados."
+      );
     } finally {
       setSaving(false);
     }
   }, [
     validate,
+    initialSnapshot.photoUrl,
+    photoUrlOrPath,
+    uploadNewPhotoIfNeeded,
+    deleteOldPhotoIfNeeded,
     name,
     phone,
-    photoUrlOrPath,
     dateOfBirth,
     city,
     neighborhood,
     street,
     number,
     authCtx,
+    applyProfileToState,
     navigation,
-    initial.photoUrl,
-    deleteOldPhotoIfNeeded,
-    uploadNewPhotoIfNeeded,
   ]);
 
   const onCancel = useCallback(() => {
     if (dirty) {
       Alert.alert("Descartar alterações?", "Você tem mudanças não salvas.", [
-        { text: "Continuar editando", style: "cancel" },
+        {
+          text: "Continuar editando",
+          style: "cancel",
+        },
         {
           text: "Descartar",
           style: "destructive",
           onPress: () => {
-            setName(initial.name);
-            setPhone(initial.phone);
-            setPhotoUrlOrPath(initial.photoUrl);
+            setName(initialSnapshot.name);
+            setPhone(initialSnapshot.phone);
+            setPhotoUrlOrPath(initialSnapshot.photoUrl);
+            setDateOfBirth(parseBirthDate(initialSnapshot.birthday || Date.now()));
 
-            setDateOfBirth(parseBirthDate(initial.birth || Date.now()));
+            setCity(initialSnapshot.city);
+            setNeighborhood(initialSnapshot.neighborhood);
+            setStreet(initialSnapshot.street);
+            setNumber(initialSnapshot.number);
+
             setShowDatePicker(false);
-
-            setCity(initial.city);
-            setNeighborhood(initial.neighborhood);
-            setStreet(initial.street);
-            setNumber(initial.number);
-
             setError("");
             setSaved(false);
           },
         },
       ]);
+
       return;
     }
-    navigation?.goBack?.();
-  }, [dirty, initial, navigation]);
 
-  // ========= UI =========
+    navigation?.goBack?.();
+  }, [dirty, initialSnapshot, navigation]);
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Header */}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <CardView>
           <View style={styles.heroTopRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.heroTitle}>Meu perfil</Text>
-              <Text style={styles.heroSubtitle}>Atualize seus dados de usuário.</Text>
+
+              <Text style={styles.heroSubtitle}>
+                Atualize seus dados de usuário.
+              </Text>
             </View>
+
             <IconCircle name="account-edit" size={46} bg={DS.colors.primary} />
           </View>
 
-          {/* Avatar (clicável) */}
           <View style={styles.avatarRow}>
             <Pressable
               onPress={saving ? null : handleImagePick}
               style={({ pressed }) => [
                 styles.avatarPressable,
-                pressed && !saving && { opacity: 0.92 },
-                saving && { opacity: 0.7 },
+                pressed &&
+                  !saving && {
+                    opacity: 0.92,
+                  },
+                saving && {
+                  opacity: 0.7,
+                },
               ]}
             >
               {photoUrlOrPath ? (
@@ -752,9 +1031,16 @@ export default function ProfileEditScreen({ navigation }) {
 
             <View style={{ flex: 1, gap: 8 }}>
               <View>
-                <Text style={{ fontWeight: "900", color: DS.colors.text }} numberOfLines={1}>
+                <Text
+                  style={{
+                    fontWeight: "900",
+                    color: DS.colors.text,
+                  }}
+                  numberOfLines={1}
+                >
                   {safeStr(name) || "Usuário"}
                 </Text>
+
                 <Text style={{ color: DS.colors.textMuted }} numberOfLines={1}>
                   {email || "—"}
                 </Text>
@@ -762,7 +1048,12 @@ export default function ProfileEditScreen({ navigation }) {
 
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 <Chip icon={roleIcon} label={roleLabel || "—"} />
-                <Chip icon={isActive ? "check-circle" : "close-circle"} label={statusLabel || "—"} tone={statusTone} />
+
+                <Chip
+                  icon={statusIcon || (isActive ? "check-circle" : "close-circle")}
+                  label={statusLabel || "—"}
+                  tone={statusTone}
+                />
               </View>
             </View>
           </View>
@@ -771,6 +1062,7 @@ export default function ProfileEditScreen({ navigation }) {
         {loadingProfile && (
           <View style={styles.loadingInline}>
             <ActivityIndicator />
+
             <Text style={{ color: DS.colors.textMuted }}>Carregando perfil...</Text>
           </View>
         )}
@@ -779,52 +1071,41 @@ export default function ProfileEditScreen({ navigation }) {
           <CardView style={styles.errorCard}>
             <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
               <IconCircle name="alert-circle" size={36} bg={DS.colors.danger} />
+
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: "900", color: DS.colors.text }}>Atenção</Text>
-                <Text style={{ color: DS.colors.textMuted, marginTop: 2 }}>{error}</Text>
+                <Text style={{ fontWeight: "900", color: DS.colors.text }}>
+                  Atenção
+                </Text>
+
+                <Text style={{ color: DS.colors.textMuted, marginTop: 2 }}>
+                  {error}
+                </Text>
               </View>
             </View>
           </CardView>
         )}
 
-        {/* Célula */}
-        <CardView>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Célula</Text>
-              <Text style={styles.sectionSubtitle}>Informações vinculadas ao seu perfil.</Text>
-            </View>
-            <IconCircle name="account-group" size={40} bg={DS.colors.accent} />
-          </View>
-
-          <View style={{ marginTop: 14, gap: 10 }}>
-            <View style={styles.kvRow}>
-              <Text style={styles.kvKey}>Nome</Text>
-              <Text style={styles.kvValue}>{cell?.name ? cell.name : "—"}</Text>
-            </View>
-            <View style={styles.kvRow}>
-              <Text style={styles.kvKey}>Dia</Text>
-              <Text style={styles.kvValue}>{cell?.day ? cell.day : "—"}</Text>
-            </View>
-          </View>
-        </CardView>
-
-        {/* Form */}
         <CardView>
           <View style={{ gap: DS.space(2) }}>
             <Text style={styles.sectionTitle}>Dados</Text>
-            <Text style={styles.sectionSubtitle}>Edite apenas o que for necessário.</Text>
 
-            {/* Nome */}
+            <Text style={styles.sectionSubtitle}>
+              Edite apenas o que for necessário.
+            </Text>
+
             <View style={{ gap: 8 }}>
               <Text style={styles.label}>Nome</Text>
+
               <View style={styles.inputWrap}>
                 <TextInput
                   value={name}
-                  onChangeText={(t) => {
-                    setName(t);
+                  onChangeText={(text) => {
+                    setName(text);
                     setSaved(false);
-                    if (error) setError("");
+
+                    if (error) {
+                      setError("");
+                    }
                   }}
                   placeholder="Digite seu nome"
                   placeholderTextColor={DS.colors.textMuted}
@@ -834,24 +1115,31 @@ export default function ProfileEditScreen({ navigation }) {
               </View>
             </View>
 
-            {/* E-mail (readonly) */}
             <View style={{ gap: 8 }}>
               <Text style={styles.label}>E-mail</Text>
+
               <View style={[styles.inputWrap, { backgroundColor: "#F3F4F6" }]}>
-                <TextInput value={email} editable={false} style={[styles.input, { color: DS.colors.textMuted }]} />
+                <TextInput
+                  value={email}
+                  editable={false}
+                  style={[styles.input, { color: DS.colors.textMuted }]}
+                />
               </View>
             </View>
 
-            {/* Telefone */}
             <View style={{ gap: 8 }}>
               <Text style={styles.label}>Telefone</Text>
+
               <View style={styles.inputWrap}>
                 <TextInput
                   value={phone}
-                  onChangeText={(t) => {
-                    setPhone(t);
+                  onChangeText={(text) => {
+                    setPhone(text);
                     setSaved(false);
-                    if (error) setError("");
+
+                    if (error) {
+                      setError("");
+                    }
                   }}
                   placeholder="(00) 00000-0000"
                   placeholderTextColor={DS.colors.textMuted}
@@ -861,21 +1149,32 @@ export default function ProfileEditScreen({ navigation }) {
               </View>
             </View>
 
-            {/* Data de nascimento */}
             <View style={{ gap: 8 }}>
               <Text style={styles.label}>Data de nascimento</Text>
+
               <Pressable
                 onPress={() => setShowDatePicker(true)}
                 style={({ pressed }) => [
                   styles.inputWrap,
-                  pressed && { opacity: 0.92 },
-                  { flexDirection: "row", alignItems: "center", gap: 10 },
+                  pressed && {
+                    opacity: 0.92,
+                  },
+                  {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                  },
                 ]}
               >
                 <Text style={[styles.input, { flex: 1, paddingVertical: 0 }]}>
                   {formatDatePTBR(dateOfBirth) || ""}
                 </Text>
-                <MaterialCommunityIcons name="calendar-month-outline" size={18} color={DS.colors.textMuted} />
+
+                <MaterialCommunityIcons
+                  name="calendar-month-outline"
+                  size={18}
+                  color={DS.colors.textMuted}
+                />
               </Pressable>
 
               {showDatePicker && (
@@ -885,12 +1184,19 @@ export default function ProfileEditScreen({ navigation }) {
                   display="default"
                   locale="pt-BR"
                   onChange={(event, selectedDate) => {
-                    if (Platform.OS === "android") setShowDatePicker(false);
+                    if (Platform.OS === "android") {
+                      setShowDatePicker(false);
+                    }
+
                     if (event?.type === "dismissed") return;
+
                     if (selectedDate) {
                       setDateOfBirth(normalizeDateOnlyUTCNoon(selectedDate));
                       setSaved(false);
-                      if (error) setError("");
+
+                      if (error) {
+                        setError("");
+                      }
                     }
                   }}
                   maximumDate={new Date()}
@@ -898,15 +1204,39 @@ export default function ProfileEditScreen({ navigation }) {
               )}
             </View>
 
-            {/* Endereço */}
             <View style={{ marginTop: 4 }}>
               <Text style={styles.sectionTitle}>Endereço</Text>
+
               <Text style={styles.sectionSubtitle}>Cidade, bairro, rua e número.</Text>
             </View>
 
-            <SimpleField label="Cidade" value={city} setValue={setCity} error={error} setError={setError} setSaved={setSaved} />
-            <SimpleField label="Bairro" value={neighborhood} setValue={setNeighborhood} error={error} setError={setError} setSaved={setSaved} />
-            <SimpleField label="Rua" value={street} setValue={setStreet} error={error} setError={setError} setSaved={setSaved} />
+            <SimpleField
+              label="Cidade"
+              value={city}
+              setValue={setCity}
+              error={error}
+              setError={setError}
+              setSaved={setSaved}
+            />
+
+            <SimpleField
+              label="Bairro"
+              value={neighborhood}
+              setValue={setNeighborhood}
+              error={error}
+              setError={setError}
+              setSaved={setSaved}
+            />
+
+            <SimpleField
+              label="Rua"
+              value={street}
+              setValue={setStreet}
+              error={error}
+              setError={setError}
+              setSaved={setSaved}
+            />
+
             <SimpleField
               label="Número"
               value={number}
@@ -920,14 +1250,28 @@ export default function ProfileEditScreen({ navigation }) {
 
             {saved && (
               <View style={styles.savedBanner}>
-                <MaterialCommunityIcons name="check-circle" size={18} color={DS.colors.success} />
-                <Text style={{ color: DS.colors.text, fontWeight: "800" }}>Alterações salvas</Text>
+                <MaterialCommunityIcons
+                  name="check-circle"
+                  size={18}
+                  color={DS.colors.success}
+                />
+
+                <Text style={{ color: DS.colors.text, fontWeight: "800" }}>
+                  Alterações salvas
+                </Text>
               </View>
             )}
 
             <View style={styles.actionsRow}>
               <OutlineButton title="Cancelar" onPress={onCancel} style={{ flex: 1 }} />
-              <PrimaryButton title="Salvar" onPress={onSave} disabled={!dirty || saving} loading={saving} style={{ flex: 1 }} />
+
+              <PrimaryButton
+                title="Salvar"
+                onPress={onSave}
+                disabled={!dirty || saving || loadingProfile}
+                loading={saving}
+                style={{ flex: 1 }}
+              />
             </View>
           </View>
         </CardView>
@@ -939,8 +1283,15 @@ export default function ProfileEditScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: DS.colors.bg },
-  content: { padding: DS.space(2), gap: DS.space(1.5) },
+  container: {
+    flex: 1,
+    backgroundColor: DS.colors.bg,
+  },
+
+  content: {
+    padding: DS.space(2),
+    gap: DS.space(1.5),
+  },
 
   cardBase: {
     backgroundColor: DS.colors.card,
@@ -949,21 +1300,69 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: DS.colors.border,
     ...Platform.select({
-      android: { elevation: 2 },
-      ios: { shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } },
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        shadowOffset: {
+          width: 0,
+          height: 6,
+        },
+      },
     }),
   },
 
-  heroTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  heroTitle: { fontSize: 22, fontWeight: "900", color: DS.colors.text, letterSpacing: 0.2 },
-  heroSubtitle: { color: DS.colors.textMuted, marginTop: 6, lineHeight: 18 },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
 
-  iconCircle: { alignItems: "center", justifyContent: "center" },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: DS.colors.text,
+    letterSpacing: 0.2,
+  },
 
-  avatarRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 14 },
-  avatarPressable: { position: "relative" },
-  avatarImg: { width: 54, height: 54, borderRadius: 27, backgroundColor: "#ddd" },
-  avatarFallback: { backgroundColor: DS.colors.primary, alignItems: "center", justifyContent: "center" },
+  heroSubtitle: {
+    color: DS.colors.textMuted,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+
+  iconCircle: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  avatarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 14,
+  },
+
+  avatarPressable: {
+    position: "relative",
+  },
+
+  avatarImg: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "#ddd",
+  },
+
+  avatarFallback: {
+    backgroundColor: DS.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   avatarBadge: {
     position: "absolute",
     right: -2,
@@ -978,10 +1377,23 @@ const styles = StyleSheet.create({
     borderColor: DS.colors.card,
   },
 
-  sectionTitle: { fontSize: 16, fontWeight: "900", color: DS.colors.text },
-  sectionSubtitle: { color: DS.colors.textMuted, marginTop: 4, lineHeight: 18 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: DS.colors.text,
+  },
 
-  label: { color: DS.colors.text, fontWeight: "900" },
+  sectionSubtitle: {
+    color: DS.colors.textMuted,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+
+  label: {
+    color: DS.colors.text,
+    fontWeight: "900",
+  },
+
   inputWrap: {
     borderWidth: 1,
     borderColor: DS.colors.border,
@@ -990,9 +1402,16 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === "ios" ? 12 : 10,
     backgroundColor: DS.colors.card,
   },
-  input: { padding: 0, color: DS.colors.text },
 
-  actionsRow: { flexDirection: "row", gap: 10 },
+  input: {
+    padding: 0,
+    color: DS.colors.text,
+  },
+
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
 
   btnPrimary: {
     backgroundColor: DS.colors.primary,
@@ -1002,7 +1421,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  btnPrimaryText: { color: "#fff", fontWeight: "900" },
+
+  btnPrimaryText: {
+    color: "#fff",
+    fontWeight: "900",
+  },
 
   btnOutline: {
     borderWidth: 1,
@@ -1014,11 +1437,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "transparent",
   },
-  btnOutlineText: { color: DS.colors.primary, fontWeight: "900" },
 
-  errorCard: { borderColor: "#FFE0E0" },
+  btnOutlineText: {
+    color: DS.colors.primary,
+    fontWeight: "900",
+  },
 
-  loadingInline: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 6 },
+  errorCard: {
+    borderColor: "#FFE0E0",
+  },
+
+  loadingInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 6,
+  },
 
   savedBanner: {
     flexDirection: "row",
@@ -1041,7 +1475,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     maxWidth: "100%",
   },
-  chipText: { fontWeight: "900" },
+
+  chipText: {
+    fontWeight: "900",
+  },
 
   kvRow: {
     flexDirection: "row",
@@ -1055,6 +1492,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#FFFFFF",
   },
-  kvKey: { color: DS.colors.textMuted, fontWeight: "900" },
-  kvValue: { color: DS.colors.text, fontWeight: "900", flexShrink: 1, textAlign: "right" },
+
+  kvKey: {
+    color: DS.colors.textMuted,
+    fontWeight: "900",
+  },
+
+  kvValue: {
+    color: DS.colors.text,
+    fontWeight: "900",
+    flexShrink: 1,
+    textAlign: "right",
+  },
 });

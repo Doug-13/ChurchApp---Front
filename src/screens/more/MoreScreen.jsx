@@ -1,185 +1,587 @@
-import React from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
 import {
   Avatar,
   Button,
-  Card,
   Divider,
   Icon,
-  List,
+  Surface,
   Text,
+  TouchableRipple,
   useTheme,
 } from "react-native-paper";
+import { getAuth, getIdToken } from "@react-native-firebase/auth";
+import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 
-function Pill({ icon, label }) {
-  const theme = useTheme();
+// ─── Design tokens — alinhados ao Design Manual ───────────────────────────────
+const NAVY = "#1A2366";
+const BRAND = "#4158D0";
+const BRAND_LIGHT = "#EEF0FA";
+const SUCCESS = "#2DBF8A";
+const SUCCESS_BG = "#E8F9F3";
+const MUTED = "#9198B5";
+const BORDER = "#E4E6F0";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function roleLabel(role) {
+  const r = String(role || "").toUpperCase();
+  if (r === "OWNER") return "Responsável";
+  if (r === "ADMIN") return "Admin";
+  if (r === "LEADER") return "Líder";
+  return "Membro";
+}
+
+function canManageChurch(role) {
+  const r = String(role || "").toUpperCase();
+  return r === "OWNER" || r === "ADMIN";
+}
+
+async function authFetch(path) {
+  const fbUser = getAuth().currentUser;
+  if (!fbUser) throw new Error("Não autenticado.");
+  const token = await getIdToken(fbUser, true);
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+  const text = await res.text().catch(() => "");
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text || null; }
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+  return data;
+}
+
+function resolveImageUrl(obj, ...fields) {
+  if (!obj) return null;
+  for (const f of fields) {
+    const v = obj[f];
+    if (v && typeof v === "string" && v.startsWith("http")) return v;
+  }
+  return null;
+}
+
+// ─── Components ───────────────────────────────────────────────────────────────
+
+function SectionLabel({ title }) {
   return (
-    <View style={[styles.pill, { backgroundColor: theme.colors.primaryContainer }]}>
-      <Icon source={icon} size={16} color={theme.colors.primary} />
-      <Text style={{ color: theme.colors.primary, fontWeight: "800" }}>{label}</Text>
-    </View>
+    <Text style={styles.sectionLabel}>{title}</Text>
   );
 }
 
+function MenuRow({ icon, iconColor, iconBg, title, description, onPress, rightElement, showDivider = true, last = false }) {
+  return (
+    <>
+      <TouchableRipple onPress={onPress} style={styles.menuRow}>
+        <View style={styles.menuRowInner}>
+          <View style={[styles.menuIcon, { backgroundColor: iconBg ?? BRAND_LIGHT }]}>
+            <Icon source={icon} size={20} color={iconColor ?? BRAND} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.menuTitle}>{title}</Text>
+            {!!description && (
+              <Text style={styles.menuDesc} numberOfLines={1}>{description}</Text>
+            )}
+          </View>
+          {rightElement ?? <Icon source="chevron-right" size={20} color={MUTED} />}
+        </View>
+      </TouchableRipple>
+      {!last && <Divider style={{ backgroundColor: BORDER, marginLeft: 64 }} />}
+    </>
+  );
+}
+
+function InfoCard({ children, style }) {
+  return (
+    <Surface elevation={0} style={[styles.card, style]}>
+      {children}
+    </Surface>
+  );
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function MoreScreen({ navigation }) {
   const theme = useTheme();
-  const { user, isAdmin, signOut } = useAuth();
+  // ✅ Usa isAdmin e activeChurchId do AuthContext — sem chamar /users/me de novo
+  const { me, signOut, isAdmin, activeChurchId } = useAuth();
 
-  const name = user?.displayName || "Conta";
-  const email = user?.email || "—";
+  const [church, setChurch] = useState(null);
+  const [myRole, setMyRole] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const userPhotoUrl = resolveImageUrl(me, "photoUrl", "avatarUrl", "imageUrl", "photo");
+  const churchLogoUrl = resolveImageUrl(church, "logoUrl", "photoUrl", "imageUrl");
+
+  const userName = me?.name || me?.displayName || "Minha conta";
+  const userEmail = me?.email || "—";
+
+  // ✅ Usa isAdmin do contexto em vez de canManageChurch(myRole) local
+  const isManager = isAdmin;
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const mine = await authFetch("/churches/mine");
+        if (!alive) return;
+
+        // ✅ Usa activeChurchId do contexto
+        const selected =
+          (activeChurchId && Array.isArray(mine) && mine.find((c) => c.id === activeChurchId)) ||
+          mine?.[0] || null;
+
+        setMyRole(selected?.myRole || selected?.role || null);
+
+        if (selected?.id) {
+          const full = await authFetch(`/churches/${selected.id}`);
+          if (alive) setChurch({ ...selected, ...full, myRole: selected?.myRole });
+        }
+      } catch (e) {
+        console.warn("[MoreScreen] erro ao carregar:", e?.message);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [activeChurchId]); // ✅ recarrega se a igreja ativa mudar
+
+  // ... resto do JSX igual, sem nenhuma outra mudança
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <Card
-          mode="outlined"
-          style={[styles.headerCard, { borderColor: theme.colors.outlineVariant }]}
-        >
-          <Card.Content style={styles.headerContent}>
-            <View style={styles.headerTop}>
-              <Avatar.Icon
-                size={56}
-                icon="account"
-                style={{ backgroundColor: theme.colors.primaryContainer }}
-                color={theme.colors.primary}
+
+        {/* ── Header: perfil do usuário ────────────────────────────────── */}
+        <Surface elevation={0} style={styles.profileCard}>
+          {/* Faixa navy no topo */}
+          <View style={styles.profileTop}>
+            <View style={styles.profileNavyStrip} />
+            {/* Avatar */}
+            <View style={styles.profileAvatarWrap}>
+              {userPhotoUrl ? (
+                <Image source={{ uri: userPhotoUrl }} style={styles.profileAvatar} resizeMode="cover" />
+              ) : (
+                <Avatar.Icon
+                  size={72} icon="account"
+                  style={{ backgroundColor: BRAND_LIGHT }}
+                  color={BRAND}
+                />
+              )}
+            </View>
+          </View>
+
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{userName}</Text>
+            <Text style={styles.profileEmail}>{userEmail}</Text>
+
+            {/* Pills: role + status */}
+            <View style={styles.profilePills}>
+              {!!myRole && (
+                <View style={[styles.profilePill, { backgroundColor: BRAND_LIGHT }]}>
+                  <View style={[styles.pillDot, { backgroundColor: BRAND }]} />
+                  <Text style={[styles.pillText, { color: BRAND }]}>{roleLabel(myRole)}</Text>
+                </View>
+              )}
+              <View style={[styles.profilePill, { backgroundColor: SUCCESS_BG }]}>
+                <View style={[styles.pillDot, { backgroundColor: SUCCESS }]} />
+                <Text style={[styles.pillText, { color: SUCCESS }]}>Ativo</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.profileActions, { borderTopColor: BORDER }]}>
+            <TouchableRipple
+              onPress={() => navigation.navigate("Profile")}
+              style={styles.profileActionBtn}
+              borderless
+            >
+              <View style={styles.profileActionInner}>
+                <Icon source="account-edit-outline" size={18} color={BRAND} />
+                <Text style={styles.profileActionText}>Editar perfil</Text>
+              </View>
+            </TouchableRipple>
+          </View>
+        </Surface>
+
+        {/* ── Igreja ──────────────────────────────────────────────────── */}
+        {church && (
+          <>
+            <SectionLabel title="MINHA IGREJA" />
+            <InfoCard>
+              {/* Header da igreja */}
+              <TouchableRipple
+                onPress={() => navigation.navigate("ChurchProfile")}
+                style={styles.churchHeader}
+              >
+                <View style={styles.churchHeaderInner}>
+                  {churchLogoUrl ? (
+                    <Image source={{ uri: churchLogoUrl }} style={styles.churchLogo} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.churchLogoFallback, { backgroundColor: BRAND_LIGHT }]}>
+                      <Icon source="church" size={22} color={BRAND} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.churchName} numberOfLines={1}>{church.name}</Text>
+                    {!!(church.city || church.state) && (
+                      <Text style={styles.churchLocation} numberOfLines={1}>
+                        {[church.city, church.state].filter(Boolean).join(" • ")}
+                      </Text>
+                    )}
+                    {!!church.about && (
+                      <Text style={styles.churchAbout} numberOfLines={2}>{church.about}</Text>
+                    )}
+                  </View>
+                  <Icon source="chevron-right" size={20} color={MUTED} />
+                </View>
+              </TouchableRipple>
+
+              <Divider style={{ backgroundColor: BORDER }} />
+
+              {/* Perfil da Igreja — visível para todos */}
+              {/* <MenuRow
+                icon="church"
+                iconColor={BRAND}
+                iconBg={BRAND_LIGHT}
+                title="Perfil da Igreja"
+                description="Sobre, horários, redes sociais"
+                onPress={() => navigation.navigate("ChurchProfile")}
+                showDivider={isManager}
+                last={!isManager}
               />
 
-              <View style={{ flex: 1 }}>
-                <Text variant="titleLarge" style={{ fontWeight: "900" }} numberOfLines={1}>
-                  {name}
-                </Text>
-                <Text style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
-                  {email}
-                </Text>
+              {isManager && (
+                <MenuRow
+                  icon="pencil-outline"
+                  iconColor="#F5A623"
+                  iconBg="#FEF5E7"
+                  title="Editar dados da Igreja"
+                  description="Nome, endereço, horários e logo"
+                  onPress={() => navigation.navigate("ChurchEdit")}
+                  last
+                />
+              )} */}
+            </InfoCard>
+          </>
+        )}
 
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                  <Pill icon="account-outline" label={isAdmin ? "Administrador" : "Membro"} />
-                  <Pill icon="church" label="Minha igreja" />
-                </View>
-              </View>
-
-              <Button
-                mode="text"
-                onPress={() => navigation.navigate("Profile")}
-                icon="chevron-right"
-                contentStyle={{ flexDirection: "row-reverse" }}
-              >
-                Perfil
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Conta */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Conta
-        </Text>
-        <Card mode="outlined" style={[styles.card, { borderColor: theme.colors.outlineVariant }]}>
-          <List.Item
+        {/* ── Conta ────────────────────────────────────────────────────── */}
+        <SectionLabel title="CONTA" />
+        <InfoCard>
+          <MenuRow
+            icon="account-outline"
+            iconColor={BRAND}
+            iconBg={BRAND_LIGHT}
             title="Meu Perfil"
-            description="Dados pessoais e preferências"
-            left={(p) => <List.Icon {...p} icon="account-outline" />}
-            right={(p) => <List.Icon {...p} icon="chevron-right" />}
+            description="Dados pessoais e foto"
             onPress={() => navigation.navigate("Profile")}
           />
-          <Divider />
-          <List.Item
+          <MenuRow
+            icon="cog-outline"
+            iconColor={MUTED}
+            iconBg="#F0F1F5"
             title="Configurações"
             description="Notificações, privacidade e tema"
-            left={(p) => <List.Icon {...p} icon="cog-outline" />}
-            right={(p) => <List.Icon {...p} icon="chevron-right" />}
             onPress={() => navigation.navigate("Settings")}
+            last
           />
-        </Card>
+        </InfoCard>
 
-        {/* Administração */}
-        {isAdmin ? (
+        {/* ── Administração — só OWNER/ADMIN ────────────────────────────── */}
+        {isManager && (
           <>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Administração
-            </Text>
-
-            <Card mode="outlined" style={[styles.card, { borderColor: theme.colors.outlineVariant }]}>
-              <List.Item
-                title="Painel administrativo"
+            <SectionLabel title="ADMINISTRAÇÃO" />
+            <InfoCard>
+              <MenuRow
+                icon="shield-account-outline"
+                iconColor="#7B61FF"
+                iconBg="#F3F0FF"
+                title="Painel Administrativo"
                 description="Dashboard, cadastros e permissões"
-                left={(p) => <List.Icon {...p} icon="shield-outline" />}
-                right={(p) => <List.Icon {...p} icon="chevron-right" />}
-                onPress={() => navigation.navigate("Admin")}
+                onPress={() => navigation.navigate("Admin", { screen: "AdminDashboard" })}
               />
-              <Divider />
-              <List.Item
-                title="Gerenciar membros"
+              <MenuRow
+                icon="account-group-outline"
+                iconColor="#2DBF8A"
+                iconBg="#E8F9F3"
+                title="Gerenciar Membros"
                 description="Cadastrar, editar e permissões"
-                left={(p) => <List.Icon {...p} icon="account-group-outline" />}
-                right={(p) => <List.Icon {...p} icon="chevron-right" />}
-                onPress={() => navigation.navigate("Directory")}
+                onPress={() => navigation.getParent?.()?.navigate("HomeTab", { screen: "Directory" })}
+                last
               />
-            </Card>
+            </InfoCard>
           </>
-        ) : null}
+        )}
 
-        {/* Ajuda */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Ajuda
-        </Text>
-
-        <Card mode="outlined" style={[styles.card, { borderColor: theme.colors.outlineVariant }]}>
-          <List.Item
+        {/* ── Ajuda ────────────────────────────────────────────────────── */}
+        <SectionLabel title="AJUDA" />
+        <InfoCard>
+          <MenuRow
+            icon="lifebuoy"
+            iconColor="#0EA5E9"
+            iconBg="#E7F6FE"
             title="Suporte"
             description="Fale com a administração"
-            left={(p) => <List.Icon {...p} icon="lifebuoy" />}
-            right={(p) => <List.Icon {...p} icon="chevron-right" />}
             onPress={() => navigation.navigate("Support")}
           />
-          <Divider />
-          <List.Item
+          <MenuRow
+            icon="information-outline"
+            iconColor={MUTED}
+            iconBg="#F0F1F5"
             title="Sobre o app"
             description="Versão, termos e privacidade"
-            left={(p) => <List.Icon {...p} icon="information-outline" />}
-            right={(p) => <List.Icon {...p} icon="chevron-right" />}
             onPress={() => navigation.navigate("About")}
+            last
           />
-        </Card>
+        </InfoCard>
 
-        {/* Sair */}
-        <View style={{ marginTop: 14 }}>
+        {/* ── Sair ─────────────────────────────────────────────────────── */}
+        <Surface elevation={0} style={[styles.card, styles.signOutCard]}>
+          <TouchableRipple onPress={signOut} style={styles.menuRow} borderless={false}>
+            <View style={styles.menuRowInner}>
+              <View style={[styles.menuIcon, { backgroundColor: "#FEECEC" }]}>
+                <Icon source="logout" size={20} color="#E84D4D" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuTitle, { color: "#E84D4D" }]}>Sair da conta</Text>
+                <Text style={styles.menuDesc}>Entrar com outra conta</Text>
+              </View>
+            </View>
+          </TouchableRipple>
+        </Surface>
 
-          <Button
-            icon="logout"
-            mode="text"
-            onPress={signOut}
-            style={{ marginTop: 12 }}
-          >
-            Sair e entrar com outra conta
-          </Button>
-        </View>
-
-        <View style={{ height: 24 }} />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  container: { padding: 16, paddingBottom: 28 },
+  container: { padding: 16, paddingBottom: 32, gap: 0 },
 
-  headerCard: { borderRadius: 22 },
-  headerContent: { paddingVertical: 6 },
-  headerTop: { flexDirection: "row", alignItems: "center", gap: 12 },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    color: MUTED,
+    textTransform: "uppercase",
+    marginTop: 20,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
 
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  // ── Card base ─────────────────────────────────────────────────────────────
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
+
+  // ── Profile card ──────────────────────────────────────────────────────────
+  profileCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+    marginTop: 8,
+  },
+
+  profileTop: {
+    position: "relative",
+    height: 56,
+  },
+
+  profileNavyStrip: {
+    position: "absolute",
+    top: 0, left: 0, right: 0,
+    height: 56,
+    backgroundColor: NAVY,
+    opacity: 1,
+  },
+
+  profileAvatarWrap: {
+    position: "absolute",
+    bottom: -28,
+    left: 20,
+    borderRadius: 999,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    overflow: "hidden",
+    width: 72,
+    height: 72,
+    backgroundColor: BRAND_LIGHT,
+  },
+
+  profileAvatar: {
+    width: 72,
+    height: 72,
     borderRadius: 999,
   },
 
-  sectionTitle: { marginTop: 16, marginBottom: 10, fontWeight: "800" },
-  card: { borderRadius: 18 },
+  profileInfo: {
+    paddingTop: 36,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    gap: 2,
+  },
+
+  profileName: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: NAVY,
+    letterSpacing: -0.4,
+  },
+
+  profileEmail: {
+    fontSize: 13,
+    color: MUTED,
+    marginTop: 2,
+  },
+
+  profilePills: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+    flexWrap: "wrap",
+  },
+
+  profilePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+
+  pillDot: { width: 6, height: 6, borderRadius: 999 },
+
+  pillText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  profileActions: {
+    borderTopWidth: 1,
+    flexDirection: "row",
+  },
+
+  profileActionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 0,
+  },
+
+  profileActionInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+
+  profileActionText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: BRAND,
+  },
+
+  // ── Igreja ────────────────────────────────────────────────────────────────
+  churchHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+
+  churchHeaderInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  churchLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+
+  churchLogoFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+
+  churchName: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: NAVY,
+    letterSpacing: -0.3,
+  },
+
+  churchLocation: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 1,
+  },
+
+  churchAbout: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 3,
+    lineHeight: 17,
+    fontStyle: "italic",
+  },
+
+  // ── Menu rows ─────────────────────────────────────────────────────────────
+  menuRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+
+  menuRowInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+
+  menuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  menuTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: NAVY,
+    letterSpacing: -0.2,
+  },
+
+  menuDesc: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 1,
+  },
+
+  // ── Sign out ──────────────────────────────────────────────────────────────
+  signOutCard: {
+    marginTop: 20,
+  },
 });

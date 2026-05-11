@@ -24,10 +24,6 @@ function normalizeEmail(email = "") {
   return String(email).trim().toLowerCase();
 }
 
-// ✅ DEV
-const DEV_FORCE_ADMIN = true;
-const DEV_ROLE = "admin";
-
 function maskToken(t = "") {
   const s = String(t || "");
   if (!s) return "";
@@ -56,9 +52,6 @@ async function apiFetch(
     ...(hasBody ? { "Content-Type": "application/json" } : {}),
   };
 
-  // ✅ CORREÇÃO: evita JSON.stringify duplo
-  // - Se body for string => usa como está
-  // - Se body for objeto => JSON.stringify
   const resolvedBody = hasBody
     ? isJsonString(body)
       ? body
@@ -120,20 +113,18 @@ export function AuthProvider({ children }) {
   const [me, setMe] = useState(null);
   const [meLoading, setMeLoading] = useState(false);
 
-  const [role, setRole] = useState(DEV_FORCE_ADMIN ? DEV_ROLE : "member");
+  const [role, setRole] = useState("member");
   const [churchStatus, setChurchStatus] = useState("checking");
 
   const app = getApp();
   const a = getAuth(app);
 
-  // ✅ helper: token (para usar nas telas)
   async function getToken(forceRefresh = false) {
     const current = a.currentUser;
     if (!current) return null;
     return getIdToken(current, forceRefresh);
   }
 
-  // ✅ helper: fetch já autenticado (para usar nas telas)
   async function apiFetchAuth(path, opts = {}) {
     const token = await getToken(false);
     if (!token) throw new Error("Usuário não autenticado (token ausente).");
@@ -160,10 +151,26 @@ export function AuthProvider({ children }) {
 
       setMe(data ?? null);
 
+      // ✅ Status da igreja
       const activeChurchId = data?.activeChurchId;
       setChurchStatus(activeChurchId ? "ready" : "needs_church");
 
-      if (DEV_FORCE_ADMIN) setRole(DEV_ROLE);
+      // ✅ Role real da API
+      const memberRole = String(
+        data?.membership?.role ??
+        data?.activeMembership?.role ??
+        data?.role ??
+        "MEMBER"
+      ).toUpperCase();
+
+      const resolvedRole =
+        memberRole === "OWNER" || memberRole === "ADMIN" ? "admin" : "member";
+
+      setRole(resolvedRole);
+
+      if (__DEV__) {
+        console.log("[AuthContext] role da API:", memberRole, "→ resolvedRole:", resolvedRole);
+      }
 
       return data;
     } catch (err) {
@@ -174,15 +181,13 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // ✅ setter: trocar igreja ativa (backend + refreshMe)
   async function setActiveChurchId(churchId) {
     const id = churchId ? String(churchId) : null;
     if (!id) throw new Error("churchId inválido.");
 
-    // ⚠️ ajuste o endpoint se o seu for diferente
     await apiFetchAuth("/users/me/active-church", {
       method: "PATCH",
-      body: { churchId: id }, // ✅ agora pode ser objeto sem risco de duplicar stringify
+      body: { churchId: id },
     });
 
     await refreshMe();
@@ -194,10 +199,10 @@ export function AuthProvider({ children }) {
       setUser(u ?? null);
 
       if (initializing) setInitializing(false);
-      if (DEV_FORCE_ADMIN) setRole(DEV_ROLE);
 
       if (!u) {
         setMe(null);
+        setRole("member");
         setChurchStatus("checking");
         return;
       }
@@ -218,9 +223,8 @@ export function AuthProvider({ children }) {
     try {
       setUser(null);
       setMe(null);
+      setRole("member");
       setChurchStatus("checking");
-      if (!DEV_FORCE_ADMIN) setRole("member");
-
       await fbSignOut(a);
     } finally {
       setMe(null);
@@ -229,9 +233,7 @@ export function AuthProvider({ children }) {
   };
 
   const value = useMemo(() => {
-    const isAdmin = role === "admin";
-
-    // ✅ EXPOSTO NO CONTEXT:
+    const isAdmin = role === "admin" || role === "owner";
     const activeChurchId = me?.activeChurchId ?? null;
 
     return {
@@ -246,7 +248,6 @@ export function AuthProvider({ children }) {
       isAdmin,
       setRole,
 
-      // ✅ helpers
       activeChurchId,
       setActiveChurchId,
       getToken,
@@ -286,7 +287,8 @@ export function AuthProvider({ children }) {
         const payload = {};
         if (displayName !== undefined)
           payload.displayName = String(displayName).trim();
-        if (photoURL !== undefined) payload.photoURL = String(photoURL).trim();
+        if (photoURL !== undefined)
+          payload.photoURL = String(photoURL).trim();
 
         await fbUpdateProfile(current, payload);
         await current.reload();

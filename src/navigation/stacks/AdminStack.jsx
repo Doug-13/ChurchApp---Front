@@ -16,18 +16,19 @@ import EventsSelectMinistryScreen from "../../screens/admin/EventsSelectMinistry
 import EventsSelectPeopleScreen from "../../screens/admin/EventsSelectPeopleScreen";
 import EventsPreviewScreen from "../../screens/admin/EventsPreviewScreen";
 import EventComposerScreen from "../../screens/admin/EventComposerScreen";
-
+// import BirthdaysScreen from "../../screens/admin/MembersBirthdayScreen";
 
 import CellCreateScreen from "../../screens/cells/CellCreateScreen";
 import CellDetailsScreen from "../../screens/cells/CellDetailsScreen";
 import CellMeetingScreen from "../../screens/cells/CellMeetingScreen";
+
 
 const Stack = createNativeStackNavigator();
 
 export default function AdminStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: "Admin" }} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: "Admin", headerShown: false, }} />
       <Stack.Screen name="MembersManage" component={MembersManageScreen} options={{ title: "Membros" }} />
       <Stack.Screen name="MemberAdminDetails" component={MemberAdminDetailsScreen} options={{ title: "Detalhes" }} />
       <Stack.Screen name="MemberForm" component={MemberFormScreen} options={{ title: "Cadastro" }} />
@@ -41,7 +42,7 @@ export default function AdminStack() {
       <Stack.Screen name="CellDetails" component={CellDetailsScreen} options={{ title: "Célula" }} />
       <Stack.Screen name="CellMeeting" component={CellMeetingScreen} options={{ title: "Encontro" }} />
 
-     
+
 
       <Stack.Screen name="NewsComposer" component={NewsComposerScreen} options={{ title: "Publicar" }} />
       <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: "Relatórios" }} />
@@ -52,6 +53,7 @@ export default function AdminStack() {
       <Stack.Screen name="EventsSelectMinistry" component={EventsSelectMinistryScreen} options={{ title: "Ministério" }} />
       <Stack.Screen name="EventsSelectPeople" component={EventsSelectPeopleScreen} options={{ title: "Equipe" }} />
       <Stack.Screen name="EventsPreview" component={EventsPreviewScreen} options={{ title: "Prévia" }} />
+      {/* <Stack.Screen name="Birthdays" component={BirthdaysScreen} options={{ title: "Aniversariantes" }} /> */}
     </Stack.Navigator>
   );
 }

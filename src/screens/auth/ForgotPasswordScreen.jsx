@@ -7,18 +7,29 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   SafeAreaView,
+  ScrollView,
+  Pressable,
 } from "react-native";
-import { Button, Text, TextInput, Surface, useTheme } from "react-native-paper";
+import { Icon, Text, TextInput } from "react-native-paper";
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const NAVY        = "#1A2366";
+const BRAND_BLUE  = "#4158D0";
+const BRAND_LIGHT = "#EEF0FA";
+const MUTED       = "#9198B5";
+const BG          = "#F5F6FA";
+const BORDER      = "#E4E6F0";
+const DANGER      = "#E84D4D";
+const DANGER_BG   = "#FEECEC";
+const SUCCESS     = "#2DBF8A";
+const SUCCESS_BG  = "#E8F9F3";
 
 export default function ForgotPasswordScreen({ navigation }) {
-  const theme = useTheme();
-
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  // mensagens “genéricas” (segurança)
-  const [info, setInfo] = useState("");
-  const [error, setError] = useState("");
+  const [email,       setEmail]       = useState("");
+  const [loading,     setLoading]     = useState(false);
+  const [info,        setInfo]        = useState("");
+  const [error,       setError]       = useState("");
+  const [focusedField, setFocusedField] = useState(null);
 
   const canSubmit = useMemo(() => {
     const e = email.trim();
@@ -28,24 +39,16 @@ export default function ForgotPasswordScreen({ navigation }) {
   async function handleSend() {
     setError("");
     setInfo("");
-
     const e = email.trim();
     if (!e || !e.includes("@")) {
       setError("Informe um e-mail válido.");
       return;
     }
-
     try {
       setLoading(true);
-
-      // ✅ Aqui você chama seu fluxo real:
       // await resetPassword(e);
-      // Ex: firebase.auth().sendPasswordResetEmail(e)
-
-      // Mensagem genérica (boa prática)
       setInfo("Se o e-mail existir, enviaremos um link de recuperação.");
-    } catch (err) {
-      // também mantém genérico
+    } catch {
       setInfo("Se o e-mail existir, enviaremos um link de recuperação.");
     } finally {
       setLoading(false);
@@ -53,138 +56,381 @@ export default function ForgotPasswordScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={styles.safe}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <KeyboardAvoidingView
-          style={styles.container}
+          style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          {/* Background decorativo */}
-          <View style={styles.bg}>
-            <View
-              style={[
-                styles.blob,
-                styles.blob1,
-                { backgroundColor: theme.colors.primary, opacity: 0.18 },
-              ]}
-            />
-            <View
-              style={[
-                styles.blob,
-                styles.blob2,
-                { backgroundColor: theme.colors.secondary ?? theme.colors.primary, opacity: 0.14 },
-              ]}
-            />
-            <View
-              style={[
-                styles.blob,
-                styles.blob3,
-                { backgroundColor: theme.colors.tertiary ?? theme.colors.primary, opacity: 0.1 },
-              ]}
-            />
-          </View>
-
-          {/* Header */}
-          <View style={styles.header}>
-            <Text variant="headlineLarge" style={styles.title}>
-              Recuperar senha 🔐
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-              Enviaremos um link se o e-mail existir.
-            </Text>
-          </View>
-
-          {/* Card */}
-          <Surface
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outlineVariant,
-              },
-            ]}
-            elevation={2}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text variant="titleMedium" style={{ marginBottom: 10 }}>
-              Informe seu e-mail
-            </Text>
 
-            <TextInput
-              mode="outlined"
-              label="E-mail"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              left={<TextInput.Icon icon="email-outline" />}
-              style={styles.input}
-            />
+            {/* ── Hero NAVY ── */}
+            <View style={styles.hero}>
+              <View style={[styles.blob, { width: 220, height: 220, top: -70, right: -60 }]} />
+              <View style={[styles.blob, { width: 150, height: 150, bottom: -80, left: -40, opacity: 0.05 }]} />
 
-            {!!error && (
-              <Text style={[styles.msg, { color: theme.colors.error }]}>{error}</Text>
-            )}
+              {/* Ícone */}
+              <View style={styles.heroIconWrap}>
+                <Icon source="lock-reset" size={28} color="#fff" />
+              </View>
 
-            {!!info && (
-              <Text style={[styles.msg, { color: theme.colors.primary }]}>{info}</Text>
-            )}
+              {/* Badge */}
+              <View style={styles.heroBadge}>
+                <View style={[styles.heroBadgeDot, { backgroundColor: "#FFD97D" }]} />
+                <Text style={styles.heroBadgeText}>Recuperação de senha</Text>
+              </View>
 
-            <Button
-              mode="contained"
-              onPress={handleSend}
-              disabled={!canSubmit}
-              loading={loading}
-              style={styles.primaryBtn}
-              contentStyle={styles.primaryBtnContent}
-              labelStyle={styles.primaryBtnLabel}
-            >
-              Enviar link
-            </Button>
+              <Text style={styles.heroTitle}>Esqueceu sua senha?</Text>
+              <Text style={styles.heroSubtitle}>
+                Informe seu e-mail e enviaremos um link para redefinir sua senha.
+              </Text>
+            </View>
 
-            <Button
-              mode="text"
-              onPress={() => navigation?.goBack?.()}
-              style={styles.linkBtn}
-              labelStyle={{ opacity: 0.9 }}
-            >
-              Voltar para o login
-            </Button>
+            {/* ── Card de formulário ── */}
+            <View style={styles.card}>
 
-            <Text style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
-              Dica: verifique também sua caixa de spam/lixo eletrônico.
-            </Text>
-          </Surface>
+              {/* E-mail */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>E-MAIL</Text>
+                <TextInput
+                  mode="outlined"
+                  value={email}
+                  onChangeText={(t) => { setEmail(t); if (error) setError(""); }}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="seuemail@dominio.com"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  left={
+                    <TextInput.Icon
+                      icon="email-outline"
+                      color={focusedField === "email" ? BRAND_BLUE : MUTED}
+                    />
+                  }
+                  style={styles.input}
+                  outlineStyle={styles.inputOutline}
+                  outlineColor={BORDER}
+                  activeOutlineColor={BRAND_BLUE}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSend}
+                  theme={{ colors: { background: "transparent" } }}
+                />
+              </View>
+
+              {/* Erro */}
+              {!!error && (
+                <View style={styles.errorBox}>
+                  <Icon source="alert-circle-outline" size={15} color={DANGER} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
+              {/* Sucesso */}
+              {!!info && (
+                <View style={styles.infoBox}>
+                  <Icon source="check-circle-outline" size={15} color={SUCCESS} />
+                  <Text style={styles.infoText}>{info}</Text>
+                </View>
+              )}
+
+              {/* Dica */}
+              {!info && (
+                <View style={styles.hintBox}>
+                  <Icon source="information-outline" size={14} color={MUTED} />
+                  <Text style={styles.hintText}>
+                    Verifique também sua caixa de spam/lixo eletrônico.
+                  </Text>
+                </View>
+              )}
+
+              {/* Botão primário */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.btnPrimary,
+                  (!canSubmit || loading) && styles.btnPrimaryDisabled,
+                  pressed && canSubmit && { backgroundColor: "#3347B0" },
+                ]}
+                onPress={handleSend}
+                disabled={!canSubmit || loading}
+              >
+                <Text style={styles.btnPrimaryLabel}>
+                  {loading ? "Enviando…" : "Enviar link de recuperação"}
+                </Text>
+              </Pressable>
+
+              {/* Divisor */}
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>ou</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {/* Voltar */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.btnOutline,
+                  pressed && { backgroundColor: BRAND_LIGHT },
+                ]}
+                onPress={() => navigation?.goBack?.()}
+                disabled={loading}
+              >
+                <Icon source="arrow-left" size={16} color={NAVY} />
+                <Text style={styles.btnOutlineLabel}>Voltar para o login</Text>
+              </Pressable>
+            </View>
+
+          </ScrollView>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  container: { flex: 1, paddingHorizontal: 20, justifyContent: "center" },
+  safe: { flex: 1, backgroundColor: BG },
+  flex: { flex: 1 },
 
-  bg: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
-  blob: { position: "absolute", borderRadius: 999 },
-  blob1: { width: 280, height: 280, top: -70, left: -80 },
-  blob2: { width: 220, height: 220, bottom: 40, right: -70 },
-  blob3: { width: 160, height: 160, top: 110, right: -40 },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
+    justifyContent: "center",
+  },
 
-  header: { marginBottom: 18 },
-  title: { fontWeight: "800" },
-  subtitle: { marginTop: 6, fontSize: 14 },
+  // Hero
+  hero: {
+    backgroundColor: NAVY,
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 28,
+    marginBottom: 16,
+    alignItems: "center",
+    overflow: "hidden",
+    position: "relative",
+    ...Platform.select({
+      ios: { shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
+      android: { elevation: 4 },
+    }),
+  },
 
-  card: { borderRadius: 22, padding: 18, borderWidth: 1 },
+  blob: {
+    position: "absolute",
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
 
-  input: { marginTop: 10 },
+  heroIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    zIndex: 2,
+  },
 
-  msg: { marginTop: 10, fontSize: 13, lineHeight: 18 },
+  heroBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.13)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginBottom: 18,
+    zIndex: 2,
+  },
 
-  primaryBtn: { marginTop: 14, borderRadius: 16 },
-  primaryBtnContent: { height: 50 },
-  primaryBtnLabel: { fontSize: 16, fontWeight: "700" },
+  heroBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+  },
 
-  linkBtn: { marginTop: 6, alignSelf: "center" },
+  heroBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
 
-  hint: { marginTop: 10, fontSize: 12, lineHeight: 16, opacity: 0.95 },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#fff",
+    textAlign: "center",
+    letterSpacing: -0.6,
+    zIndex: 2,
+  },
+
+  heroSubtitle: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.65)",
+    textAlign: "center",
+    lineHeight: 19,
+    zIndex: 2,
+  },
+
+  // Card
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 20,
+    ...Platform.select({
+      ios: { shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 2 },
+    }),
+  },
+
+  // Campo
+  fieldGroup: {
+    marginBottom: 16,
+  },
+
+  fieldLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: MUTED,
+    letterSpacing: 1,
+    marginBottom: 7,
+  },
+
+  input: {
+    backgroundColor: "#F5F6FA",
+    fontSize: 14,
+  },
+
+  inputOutline: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+
+  // Erro
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: DANGER_BG,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    padding: 12,
+    marginBottom: 16,
+  },
+
+  errorText: {
+    fontSize: 13,
+    color: DANGER,
+    flex: 1,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+
+  // Sucesso
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: SUCCESS_BG,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    padding: 12,
+    marginBottom: 16,
+  },
+
+  infoText: {
+    fontSize: 13,
+    color: SUCCESS,
+    flex: 1,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+
+  // Dica
+  hintBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 7,
+    marginBottom: 16,
+  },
+
+  hintText: {
+    fontSize: 12,
+    color: MUTED,
+    flex: 1,
+    lineHeight: 17,
+  },
+
+  // Botão primário
+  btnPrimary: {
+    backgroundColor: BRAND_BLUE,
+    borderRadius: 16,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  btnPrimaryDisabled: {
+    opacity: 0.45,
+  },
+
+  btnPrimaryLabel: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: -0.2,
+  },
+
+  // Divisor
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 20,
+  },
+
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: BORDER,
+  },
+
+  dividerText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: MUTED,
+    letterSpacing: 0.8,
+  },
+
+  // Botão outline
+  btnOutline: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 16,
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    backgroundColor: "transparent",
+  },
+
+  btnOutlineLabel: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: NAVY,
+  },
 });
