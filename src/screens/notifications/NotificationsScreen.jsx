@@ -14,7 +14,7 @@ import React, {
 import {
   Animated,
   FlatList,
-  Pressable,
+  Platform,
   RefreshControl,
   StyleSheet,
   TouchableOpacity,
@@ -44,21 +44,17 @@ const BG          = "#F5F6FA";
 const SURFACE     = "#FFFFFF";
 const SUCCESS     = "#2DBF8A";
 const SUCCESS_BG  = "#E8F9F3";
-const DANGER      = "#E84D4D";
-const DANGER_BG   = "#FEECEC";
-const WARNING     = "#F5A623";
-const WARNING_BG  = "#FEF5E7";
 
 // ─── Metadados por tipo de notificação ───────────────────────────────────────
 
 const TYPE_META = {
-  NEWS:         { icon: "bullhorn-outline",         color: BRAND,    bg: BRAND_LIGHT, label: "Aviso"      },
-  EVENT:        { icon: "calendar-star",             color: "#7C3AED",bg: "#F1EAFE",   label: "Evento"     },
-  EVENT_INVITE: { icon: "clipboard-list-outline",    color: "#F97316",bg: "#FFF3E8",   label: "Escala"     },
-  CELL_MEETING: { icon: "account-group",             color: "#0EA5E9",bg: "#E7F6FE",   label: "Célula"     },
-  SCHEDULE:     { icon: "calendar-check-outline",    color: "#C84AB5",bg: "#FBE9F8",   label: "Escala"     },
-  MEMBER_JOIN:  { icon: "account-plus-outline",      color: SUCCESS,  bg: SUCCESS_BG,  label: "Membro"     },
-  SYSTEM:       { icon: "information-outline",       color: MUTED,    bg: "#F0F1F7",   label: "Sistema"    },
+  NEWS:         { icon: "bullhorn-outline",         color: BRAND,    bg: BRAND_LIGHT, label: "Aviso"    },
+  EVENT:        { icon: "calendar-star",             color: "#7C3AED",bg: "#F1EAFE",   label: "Evento"   },
+  EVENT_INVITE: { icon: "clipboard-list-outline",    color: "#F97316",bg: "#FFF3E8",   label: "Escala"   },
+  CELL_MEETING: { icon: "account-group",             color: "#0EA5E9",bg: "#E7F6FE",   label: "Célula"   },
+  SCHEDULE:     { icon: "calendar-check-outline",    color: "#C84AB5",bg: "#FBE9F8",   label: "Escala"   },
+  MEMBER_JOIN:  { icon: "account-plus-outline",      color: SUCCESS,  bg: SUCCESS_BG,  label: "Membro"   },
+  SYSTEM:       { icon: "information-outline",       color: MUTED,    bg: "#F0F1F7",   label: "Sistema"  },
 };
 
 function getMeta(type) {
@@ -74,9 +70,9 @@ async function authFetch(path, options = {}) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization:  `Bearer ${token}`,
       "Content-Type": "application/json",
-      Accept: "application/json",
+      Accept:         "application/json",
       ...(options.headers ?? {}),
     },
   });
@@ -88,48 +84,42 @@ async function authFetch(path, options = {}) {
 }
 
 function toArray(val) {
-  if (Array.isArray(val)) return val;
-  if (Array.isArray(val?.items)) return val.items;
-  if (Array.isArray(val?.data)) return val.data;
+  if (Array.isArray(val))          return val;
+  if (Array.isArray(val?.items))   return val.items;
+  if (Array.isArray(val?.data))    return val.data;
   return [];
 }
 
 function formatRelativeTime(dateStr) {
   if (!dateStr) return "";
-  const now = new Date();
+  const now  = new Date();
   const date = new Date(dateStr);
-  const diffMs = now - date;
+  const diffMs  = now - date;
   const diffMin = Math.floor(diffMs / 60000);
-  const diffH = Math.floor(diffMin / 60);
-  const diffD = Math.floor(diffH / 24);
-
+  const diffH   = Math.floor(diffMin / 60);
+  const diffD   = Math.floor(diffH / 24);
   if (diffMin < 1)  return "Agora";
   if (diffMin < 60) return `${diffMin}min atrás`;
   if (diffH < 24)   return `${diffH}h atrás`;
   if (diffD === 1)  return "Ontem";
   if (diffD < 7)    return `${diffD} dias atrás`;
-
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
 function groupByDate(items) {
   const today     = new Date();
   const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-
   const fmt = (d) => new Date(d).toDateString();
-
   const groups = {};
   for (const item of items) {
     const d = new Date(item.createdAt);
     let label;
-    if (fmt(d) === fmt(today))     label = "Hoje";
+    if      (fmt(d) === fmt(today))     label = "Hoje";
     else if (fmt(d) === fmt(yesterday)) label = "Ontem";
     else label = d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
-
     if (!groups[label]) groups[label] = [];
     groups[label].push(item);
   }
-
   const result = [];
   for (const [label, data] of Object.entries(groups)) {
     result.push({ type: "header", label, key: `h_${label}` });
@@ -140,7 +130,7 @@ function groupByDate(items) {
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
-function SectionHeader({ label }) {
+function DateHeader({ label }) {
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionHeaderText}>{label}</Text>
@@ -148,8 +138,8 @@ function SectionHeader({ label }) {
   );
 }
 
-function NotificationRow({ item, onPress, onSwipeRead }) {
-  const meta = getMeta(item.type);
+function NotificationRow({ item, onPress, onMarkRead }) {
+  const meta      = getMeta(item.type);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   function handlePressIn() {
@@ -166,21 +156,15 @@ function NotificationRow({ item, onPress, onSwipeRead }) {
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         rippleColor={`${meta.color}18`}
-        style={[
-          styles.notifRow,
-          !item.read && styles.notifRowUnread,
-        ]}
+        style={[styles.notifRow, !item.read && styles.notifRowUnread]}
       >
         <View style={styles.notifInner}>
-          {/* Indicador de não lido */}
           {!item.read && <View style={[styles.unreadDot, { backgroundColor: meta.color }]} />}
 
-          {/* Ícone */}
           <View style={[styles.iconWrap, { backgroundColor: meta.bg }]}>
             <Icon source={meta.icon} size={20} color={meta.color} />
           </View>
 
-          {/* Conteúdo */}
           <View style={styles.notifContent}>
             <View style={styles.notifTitleRow}>
               <Text
@@ -200,7 +184,7 @@ function NotificationRow({ item, onPress, onSwipeRead }) {
               </View>
               {!item.read && (
                 <TouchableOpacity
-                  onPress={() => onSwipeRead(item.id)}
+                  onPress={() => onMarkRead(item.id)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={[styles.markReadBtn, { color: meta.color }]}>Marcar como lido</Text>
@@ -231,14 +215,13 @@ function EmptyState() {
 // ─── Tela principal ───────────────────────────────────────────────────────────
 
 export default function NotificationsScreen({ navigation }) {
-  const theme  = useTheme();
-  const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const insets      = useSafeAreaInsets();
+  const { user }    = useAuth();
 
-  const [items, setItems]         = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [items,      setItems]    = useState([]);
+  const [loading,    setLoading]  = useState(true);
   const [refreshing, setRefresh]  = useState(false);
-  const [filter, setFilter]       = useState("ALL"); // ALL | UNREAD
+  const [filter,     setFilter]   = useState("ALL");
 
   const unreadCount = useMemo(
     () => items.filter((n) => !n.read).length,
@@ -250,7 +233,7 @@ export default function NotificationsScreen({ navigation }) {
     return groupByDate(list);
   }, [items, filter]);
 
-  // ── Fetch ────────────────────────────────────────────────────────────────────
+  // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchNotifications = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -267,17 +250,16 @@ export default function NotificationsScreen({ navigation }) {
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
 
-  // ── Ações ────────────────────────────────────────────────────────────────────
+  // ── Ações ──────────────────────────────────────────────────────────────────
 
   async function markRead(id) {
     setItems((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n))
+      prev.map((n) => n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n)
     );
     try {
       await authFetch(`/notifications/${id}/read`, { method: "PATCH" });
     } catch {
-      // Reverter em caso de falha
-      setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: false, readAt: null } : n)));
+      setItems((prev) => prev.map((n) => n.id === id ? { ...n, read: false, readAt: null } : n));
     }
   }
 
@@ -287,52 +269,74 @@ export default function NotificationsScreen({ navigation }) {
       await authFetch("/notifications/read-all", { method: "PATCH" });
     } catch (e) {
       console.warn("markAllRead error:", e.message);
-      fetchNotifications(true); // Re-fetch para sincronizar
+      fetchNotifications(true);
     }
   }
 
   function handlePress(notif) {
     if (!notif.read) markRead(notif.id);
-    // Deep-link por refType
     if (notif.refType && notif.refId) {
+      const parent = navigation.getParent?.();
+      const nav    = parent || navigation;
       const routes = {
-        news:         () => navigation.navigate("NewsTab",       { screen: "NewsDetails", params: { id: notif.refId } }),
-        event:        () => navigation.navigate("Events",        { screen: "EventDetails",   params: { id: notif.refId } }),
-        cell_meeting: () => navigation.navigate("CellsTab",      { screen: "CellMeeting",    params: { id: notif.refId } }),
-        schedule:     () => navigation.navigate("SchedulesTab",  { screen: "ScheduleDetails",params: { id: notif.refId } }),
+        news:         () => nav.navigate("NewsTab",       { screen: "NewsDetails",     params: { id: notif.refId } }),
+        event:        () => nav.navigate("Events",        { screen: "EventDetails",    params: { id: notif.refId } }),
+        cell_meeting: () => nav.navigate("CellsTab",      { screen: "CellMeeting",     params: { id: notif.refId } }),
+        schedule:     () => nav.navigate("SchedulesTab",  { screen: "ScheduleDetails", params: { id: notif.refId } }),
       };
       routes[notif.refType]?.();
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
-
   function renderItem({ item }) {
-    if (item.type === "header") return <SectionHeader label={item.label} />;
+    if (item.type === "header") return <DateHeader label={item.label} />;
     return (
       <NotificationRow
         item={item.data}
         onPress={handlePress}
-        onSwipeRead={markRead}
+        onMarkRead={markRead}
       />
     );
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
-      {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <View>
+
+      {/* ── Header com botão de voltar ── */}
+      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === "android" ? 16 : 12) }]}>
+
+        {/* Botão voltar */}
+        <TouchableRipple
+          onPress={() => navigation.goBack()}
+          borderless
+          style={styles.backBtn}
+        >
+          <View style={styles.backBtnInner}>
+            <Icon source="arrow-left" size={20} color={NAVY} />
+          </View>
+        </TouchableRipple>
+
+        {/* Título + subtítulo */}
+        <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Notificações</Text>
           {unreadCount > 0 && (
-            <Text style={styles.headerSub}>{unreadCount} não {unreadCount === 1 ? "lida" : "lidas"}</Text>
+            <Text style={styles.headerSub}>
+              {unreadCount} não {unreadCount === 1 ? "lida" : "lidas"}
+            </Text>
           )}
         </View>
-        {unreadCount > 0 && (
+
+        {/* Marcar todas como lidas */}
+        {unreadCount > 0 ? (
           <TouchableOpacity onPress={markAllRead} style={styles.readAllBtn}>
             <Icon source="check-all" size={16} color={BRAND} />
             <Text style={styles.readAllText}>Marcar todas</Text>
           </TouchableOpacity>
+        ) : (
+          // Espaçador para manter título centralizado quando não há botão
+          <View style={styles.headerSpacer} />
         )}
       </View>
 
@@ -391,217 +395,93 @@ export default function NotificationsScreen({ navigation }) {
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
+  root: { flex: 1 },
 
-  // Header
+  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    backgroundColor: SURFACE,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: NAVY,
-    letterSpacing: -0.5,
-  },
-  headerSub: {
-    fontSize: 13,
-    color: MUTED,
-    marginTop: 2,
-    fontWeight: "500",
-  },
-  readAllBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: BRAND_LIGHT,
-    borderRadius: 20,
-  },
-  readAllText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: BRAND,
-  },
-
-  // Filter chips
-  filterRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-    backgroundColor: SURFACE,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: "#F0F1F7",
-  },
-  chipActive: {
-    backgroundColor: BRAND_LIGHT,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: MUTED,
-  },
-  chipTextActive: {
-    color: BRAND,
-  },
-
-  // Lista
-  list: {
-    paddingTop: 8,
+    flexDirection:   "row",
+    alignItems:      "center",
     paddingHorizontal: 12,
-  },
-  listEmpty: {
-    flexGrow: 1,
-    justifyContent: "center",
-  },
-
-  // Section header
-  sectionHeader: {
-    paddingHorizontal: 8,
-    paddingTop: 16,
-    paddingBottom: 6,
-  },
-  sectionHeaderText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: MUTED,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-
-  // Notification row
-  notifRow: {
+    paddingBottom:   12,
     backgroundColor: SURFACE,
-    borderRadius: 16,
-    marginBottom: 6,
-    overflow: "hidden",
-  },
-  notifRowUnread: {
-    backgroundColor: "#FAFBFF",
-    borderWidth: 1,
-    borderColor: `${BRAND}22`,
-  },
-  notifInner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 14,
-    gap: 12,
-  },
-  unreadDot: {
-    position: "absolute",
-    top: 16,
-    left: 6,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    marginLeft: 6, // espaço pro dot
-  },
-  notifContent: {
-    flex: 1,
-    gap: 4,
-  },
-  notifTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  notifTitle: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: NAVY,
-    lineHeight: 19,
-  },
-  notifTitleUnread: {
-    fontWeight: "800",
-  },
-  notifTime: {
-    fontSize: 11,
-    color: MUTED,
-    flexShrink: 0,
-  },
-  notifBody: {
-    fontSize: 13,
-    color: MUTED,
-    lineHeight: 18,
-  },
-  notifMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 2,
-  },
-  typeBadge: {
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  typeBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  markReadBtn: {
-    fontSize: 12,
-    fontWeight: "600",
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+    gap: 8,
   },
 
-  // Loading
-  loadingWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  // Empty
-  emptyWrap: {
-    alignItems: "center",
-    paddingVertical: 48,
-    gap: 12,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
+  // Botão voltar
+  backBtn:      { borderRadius: 12, overflow: "hidden" },
+  backBtnInner: {
+    width:           40,
+    height:          40,
+    borderRadius:    12,
     backgroundColor: "#F0F1F7",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
+    alignItems:      "center",
+    justifyContent:  "center",
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: NAVY,
-    letterSpacing: -0.3,
+
+  // Título central
+  headerCenter: { flex: 1 },
+  headerTitle:  { fontSize: 20, fontWeight: "900", color: NAVY, letterSpacing: -0.4 },
+  headerSub:    { fontSize: 12, color: MUTED, marginTop: 1, fontWeight: "500" },
+
+  // Botão marcar todas / espaçador
+  readAllBtn: {
+    flexDirection:  "row",
+    alignItems:     "center",
+    gap:            4,
+    paddingVertical:   6,
+    paddingHorizontal: 10,
+    backgroundColor:   BRAND_LIGHT,
+    borderRadius:   20,
   },
-  emptyDesc: {
-    fontSize: 14,
-    color: MUTED,
-    textAlign: "center",
-    lineHeight: 20,
-    maxWidth: 260,
+  readAllText:   { fontSize: 12, fontWeight: "700", color: BRAND },
+  headerSpacer:  { width: 40 },
+
+  // ── Filtros ─────────────────────────────────────────────────────────────────
+  filterRow: {
+    flexDirection:    "row",
+    paddingHorizontal: 16,
+    paddingVertical:   10,
+    gap:              8,
+    backgroundColor:  SURFACE,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
+  chip:           { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "#F0F1F7" },
+  chipActive:     { backgroundColor: BRAND_LIGHT },
+  chipText:       { fontSize: 13, fontWeight: "600", color: MUTED },
+  chipTextActive: { color: BRAND, fontWeight: "700" },
+
+  // ── Lista ───────────────────────────────────────────────────────────────────
+  list:      { paddingTop: 8, paddingHorizontal: 12 },
+  listEmpty: { flexGrow: 1, justifyContent: "center" },
+
+  sectionHeader:     { paddingHorizontal: 8, paddingTop: 16, paddingBottom: 6 },
+  sectionHeaderText: { fontSize: 11, fontWeight: "800", color: MUTED, textTransform: "uppercase", letterSpacing: 0.8 },
+
+  // ── Notificação ─────────────────────────────────────────────────────────────
+  notifRow:       { backgroundColor: SURFACE, borderRadius: 16, marginBottom: 6, overflow: "hidden" },
+  notifRowUnread: { backgroundColor: "#FAFBFF", borderWidth: 1, borderColor: `${BRAND}22` },
+  notifInner:     { flexDirection: "row", alignItems: "flex-start", padding: 14, gap: 12 },
+  unreadDot:      { position: "absolute", top: 16, left: 6, width: 7, height: 7, borderRadius: 4 },
+  iconWrap:       { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 6 },
+
+  notifContent:     { flex: 1, gap: 4 },
+  notifTitleRow:    { flexDirection: "row", alignItems: "center", gap: 6 },
+  notifTitle:       { flex: 1, fontSize: 14, fontWeight: "600", color: NAVY, lineHeight: 19 },
+  notifTitleUnread: { fontWeight: "800" },
+  notifTime:        { fontSize: 11, color: MUTED, flexShrink: 0 },
+  notifBody:        { fontSize: 13, color: MUTED, lineHeight: 18 },
+  notifMeta:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
+  typeBadge:        { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
+  typeBadgeText:    { fontSize: 11, fontWeight: "700" },
+  markReadBtn:      { fontSize: 12, fontWeight: "600" },
+
+  // ── Estados ─────────────────────────────────────────────────────────────────
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  emptyWrap:   { alignItems: "center", paddingVertical: 48, gap: 12 },
+  emptyIcon:   { width: 72, height: 72, borderRadius: 24, backgroundColor: "#F0F1F7", alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  emptyTitle:  { fontSize: 18, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
+  emptyDesc:   { fontSize: 14, color: MUTED, textAlign: "center", lineHeight: 20, maxWidth: 260 },
 });

@@ -6,6 +6,8 @@ import {
   RefreshControl,
   Image,
   Platform,
+  Linking,
+  TouchableOpacity,
 } from "react-native";
 import {
   Text,
@@ -26,18 +28,35 @@ import { useFocusEffect } from "@react-navigation/native";
 import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 
-// ─── Design System (conforme manual) ────────────────────────────────────────
-const NAVY = "#1A2366";
-const BRAND = "#4158D0";
+// ─── Design System ────────────────────────────────────────────────────────────
+const NAVY        = "#1A2366";
+const BRAND       = "#4158D0";
 const BRAND_LIGHT = "#EEF0FA";
-const BG = "#F5F6FA";
-const SURFACE = "#FFFFFF";
-const BORDER = "#E4E6F0";
-const MUTED = "#9198B5";
-const SUCCESS = "#2DBF8A";
-const SUCCESS_LIGHT = "#E8F9F3";
+const BG          = "#F5F6FA";
+const SURFACE     = "#FFFFFF";
+const BORDER      = "#E4E6F0";
+const MUTED       = "#9198B5";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Permissões ───────────────────────────────────────────────────────────────
+function isAdminOrOwner(role) {
+  const r = String(role || "").toUpperCase();
+  return r === "OWNER" || r === "ADMIN";
+}
+
+function isLeaderOfCell(cell, me) {
+  if (!cell || !me) return false;
+  const myId  = me?.id  || me?.uid  || null;
+  const myUid = me?.uid || me?.id   || null;
+  const leaderUserId = cell?.leader?.userId || cell?.leader?.id || null;
+  const leaderId     = cell?.leaderId || null;
+  if (!myId && !myUid) return false;
+  return (
+    (leaderUserId && (leaderUserId === myId || leaderUserId === myUid)) ||
+    (leaderId     && (leaderId     === myId || leaderId     === myUid))
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function withAlpha(hex, alphaHex = "18") {
   const h = String(hex || "").trim();
   if (!/^#?[0-9a-fA-F]{6}$/.test(h)) return hex;
@@ -51,11 +70,11 @@ function isHttpUrl(u) {
 
 function pickPhotoUrl(item) {
   return (
-    item?.photoUrl ||
-    item?.photoURL ||
-    item?.avatarUrl ||
-    item?.user?.photoUrl ||
-    item?.user?.photoURL ||
+    item?.photoUrl   ||
+    item?.photoURL   ||
+    item?.avatarUrl  ||
+    item?.user?.photoUrl  ||
+    item?.user?.photoURL  ||
     item?.user?.avatarUrl ||
     null
   );
@@ -65,8 +84,58 @@ function initials(name = "") {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "?";
   const first = parts[0]?.[0] || "";
-  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] : "";
+  const last  = parts.length > 1 ? parts[parts.length - 1]?.[0] : "";
   return (first + last).toUpperCase();
+}
+
+/**
+ * Monta uma string de endereço legível a partir dos campos da célula.
+ * Retorna null se não tiver nada.
+ */
+function buildAddressString(cell) {
+  if (!cell) return null;
+  const parts = [
+    cell.street && cell.number
+      ? `${cell.street}, ${cell.number}`
+      : cell.street || null,
+    cell.complement || null,
+    cell.neighborhood || null,
+    cell.city || null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+/**
+ * Abre o endereço no app de mapas nativo.
+ * iOS → Apple Maps | Android → Google Maps / qualquer app registrado
+ */
+function openInMaps(address) {
+  if (!address) return;
+  const encoded = encodeURIComponent(address);
+  const url = Platform.select({
+    ios: `maps:0,0?q=${encoded}`,
+    android: `geo:0,0?q=${encoded}`,
+  });
+  Linking.canOpenURL(url).then((supported) => {
+    if (supported) {
+      Linking.openURL(url);
+    } else {
+      // fallback para Google Maps web
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
+    }
+  });
+}
+
+/**
+ * Gera URL do mapa estático OpenStreetMap (sem necessidade de API key).
+ * Usamos a API do staticmap.openstreetmap.de como imagem embutida.
+ */
+function buildStaticMapUrl(address, width = 640, height = 200) {
+  if (!address) return null;
+  const encoded = encodeURIComponent(address);
+  // Nominatim geocode → não serve imagem; usamos Maps.co staticmap (gratuito, sem key)
+  // Alternativa sem key: openstreetmap via geoapify
+  return `https://staticmap.openstreetmap.de/staticmap.php?center=${encoded}&zoom=15&size=${width}x${height}&maptype=mapnik&markers=${encoded},red-pushpin`;
 }
 
 async function authedFetch(path, { method = "GET", body, signal } = {}, authCtx) {
@@ -93,14 +162,14 @@ async function authedFetch(path, { method = "GET", body, signal } = {}, authCtx)
   if (!res.ok) {
     const msg = (data && (data.message || data.error)) || `Erro ${res.status}.`;
     const err = new Error(msg);
-    err.status = res.status;
+    err.status  = res.status;
     err.payload = data;
     throw err;
   }
   return data;
 }
 
-// ─── Modal de seleção de membro ──────────────────────────────────────────────
+// ─── Modal de seleção de membro ───────────────────────────────────────────────
 function MemberCascadeModal({ visible, onDismiss, items, loading, selectedIds = [], onPick }) {
   const [q, setQ] = useState("");
 
@@ -123,20 +192,15 @@ function MemberCascadeModal({ visible, onDismiss, items, loading, selectedIds = 
         onDismiss={onDismiss}
         contentContainerStyle={styles.modalSheet}
       >
-        {/* Handle bar */}
         <View style={styles.modalHandle} />
-
-        {/* Faixa de acento */}
         <View style={[styles.modalStrip, { backgroundColor: BRAND }]} />
 
         <View style={{ padding: 20, gap: 14 }}>
-          {/* Cabeçalho */}
           <View style={styles.modalHeaderRow}>
             <Text style={styles.modalTitle}>Adicionar membro</Text>
             <IconButton icon="close" onPress={onDismiss} style={{ margin: 0 }} iconColor={MUTED} />
           </View>
 
-          {/* Busca */}
           <Searchbar
             placeholder="Buscar membro..."
             value={q}
@@ -147,7 +211,6 @@ function MemberCascadeModal({ visible, onDismiss, items, loading, selectedIds = 
             placeholderTextColor={MUTED}
           />
 
-          {/* Lista */}
           {loading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={BRAND} />
@@ -180,15 +243,13 @@ function MemberCascadeModal({ visible, onDismiss, items, loading, selectedIds = 
                         />
                       )}
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.memberName} numberOfLines={1}>
-                          {m.fullName || "Membro"}
-                        </Text>
-                        <Text style={styles.memberMeta} numberOfLines={1}>
-                          {m.phone || "Sem telefone"}
-                        </Text>
+                        <Text style={styles.memberName} numberOfLines={1}>{m.fullName}</Text>
+                        {!!m.phone && (
+                          <Text style={styles.memberMeta} numberOfLines={1}>{m.phone}</Text>
+                        )}
                       </View>
                       <View style={[styles.addChip, { backgroundColor: BRAND_LIGHT }]}>
-                        <Text style={[styles.addChipText, { color: BRAND }]}>+ Adicionar</Text>
+                        <Text style={[styles.addChipText, { color: BRAND }]}>Adicionar</Text>
                       </View>
                     </View>
                   </TouchableRipple>
@@ -202,7 +263,7 @@ function MemberCascadeModal({ visible, onDismiss, items, loading, selectedIds = 
   );
 }
 
-// ─── Info Row (modal) ────────────────────────────────────────────────────────
+// ─── Info Row ─────────────────────────────────────────────────────────────────
 function ModalInfoRow({ icon, label, value, accentColor }) {
   return (
     <View style={styles.infoRow}>
@@ -217,14 +278,13 @@ function ModalInfoRow({ icon, label, value, accentColor }) {
   );
 }
 
-// ─── Linha de membro ─────────────────────────────────────────────────────────
+// ─── Linha de membro ──────────────────────────────────────────────────────────
 function MemberRow({ member, accentColor }) {
   const photoUrl = pickPhotoUrl(member);
 
   return (
     <View style={styles.memberRowWrap}>
       <View style={[styles.memberBar, { backgroundColor: accentColor || BRAND }]} />
-
       {isHttpUrl(photoUrl) ? (
         <Avatar.Image size={42} source={{ uri: photoUrl }} />
       ) : (
@@ -235,12 +295,10 @@ function MemberRow({ member, accentColor }) {
           style={{ backgroundColor: accentColor || BRAND }}
         />
       )}
-
       <View style={{ flex: 1 }}>
         <Text style={styles.memberName} numberOfLines={1}>
           {member.fullName || member.name || member.user?.name || "Membro"}
         </Text>
-
         <Text style={styles.memberMeta} numberOfLines={1}>
           {member.phone || member.user?.email || "Sem telefone"}
         </Text>
@@ -249,36 +307,139 @@ function MemberRow({ member, accentColor }) {
   );
 }
 
-// ─── Tela principal ──────────────────────────────────────────────────────────
+// ─── Card de Endereço com Mapa ────────────────────────────────────────────────
+function AddressCard({ cell, accentColor }) {
+  const address = buildAddressString(cell);
+  const hasAddress = !!address;
+
+  // Campos extras opcionais
+  const reference = cell?.reference || null;
+  const complement = cell?.complement || null;
+
+  if (!hasAddress && !reference) return null;
+
+  // URL do mapa estático via Google Maps Static (sem key, embed público)
+  // Usa o endpoint público do Maps que não exige key para imagem simples
+  const mapImageUrl = hasAddress
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(address)}&zoom=15&size=640x200&scale=2&maptype=roadmap&markers=color:0x4158D0%7C${encodeURIComponent(address)}&style=feature:all%7Celement:geometry%7Ccolor:0xF5F6FA&style=feature:road%7Celement:geometry%7Ccolor:0xE4E6F0&style=feature:poi%7Cvisibility:off`
+    : null;
+
+  // Fallback: imagem iframe embed do OSM via thumbs (não precisa de key)
+  const osmEmbedUrl = hasAddress
+    ? `https://www.openstreetmap.org/search?query=${encodeURIComponent(address)}`
+    : null;
+
+  return (
+    <View style={{ marginTop: 18 }}>
+      {/* Header da seção */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Localização</Text>
+      </View>
+
+      <Surface elevation={0} style={styles.addressCard}>
+        {/* Mapa estático — toca para abrir no app de mapas */}
+        {hasAddress && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => openInMaps(address)}
+            style={styles.mapContainer}
+          >
+            {/* Imagem do mapa estático */}
+            <Image
+              source={{
+                uri: `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(address)}&zoom=15&size=640x200&maptype=mapnik`,
+              }}
+              style={styles.mapImage}
+              resizeMode="cover"
+            />
+
+            {/* Overlay com pin e "Abrir no Maps" */}
+            <View style={styles.mapOverlay}>
+              <View style={[styles.mapPinBadge, { backgroundColor: accentColor || BRAND }]}>
+                <Text style={styles.mapPinIcon}>📍</Text>
+                <Text style={styles.mapPinText}>Abrir no Maps</Text>
+              </View>
+            </View>
+
+            {/* Gradiente sutil no rodapé do mapa */}
+            <View style={styles.mapGradient} />
+          </TouchableOpacity>
+        )}
+
+        {/* Detalhes do endereço */}
+        <View style={{ padding: 16, gap: 12 }}>
+          {hasAddress && (
+            <ModalInfoRow
+              icon="📍"
+              label="ENDEREÇO"
+              value={address}
+              accentColor={accentColor}
+            />
+          )}
+
+          {!!reference && (
+            <>
+              <Divider style={{ backgroundColor: BORDER }} />
+              <ModalInfoRow
+                icon="🏷️"
+                label="REFERÊNCIA"
+                value={reference}
+                accentColor={accentColor}
+              />
+            </>
+          )}
+
+          {/* Botão "Como chegar" */}
+          {hasAddress && (
+            <TouchableRipple
+              onPress={() => openInMaps(address)}
+              borderless
+              style={[
+                styles.directionsBtn,
+                { backgroundColor: withAlpha(accentColor || BRAND, "12"), borderColor: accentColor || BRAND },
+              ]}
+            >
+              <View style={styles.directionsBtnInner}>
+                <Text style={{ fontSize: 16 }}>🗺️</Text>
+                <Text style={[styles.directionsBtnText, { color: accentColor || BRAND }]}>
+                  Como chegar
+                </Text>
+              </View>
+            </TouchableRipple>
+          )}
+        </View>
+      </Surface>
+    </View>
+  );
+}
+
+// ─── Tela principal ───────────────────────────────────────────────────────────
 export default function CellDetailsScreen({ navigation, route }) {
   const authCtx = useAuth();
 
   const cellId =
-    route?.params?.id ||
+    route?.params?.id     ||
     route?.params?.cellId ||
     route?.params?.cell?.id ||
     null;
 
-  const [cell, setCell] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [cell,        setCell]        = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [refreshing,  setRefreshing]  = useState(false);
+  const [error,       setError]       = useState("");
 
-  const [addOpen, setAddOpen] = useState(false);
-  const [churchMembers, setChurchMembers] = useState([]);
+  const me     = authCtx?.me || null;
+  const myRole = authCtx?.myRole || me?.role || authCtx?.role || null;
+
+  const isAdminOwner = isAdminOrOwner(myRole);
+  const isLeaderHere = useMemo(() => isLeaderOfCell(cell, me), [cell, me]);
+  const canEdit        = isAdminOwner || isLeaderHere;
+  const canViewActions = isAdminOwner || isLeaderHere;
+
+  const [addOpen,              setAddOpen]              = useState(false);
+  const [churchMembers,        setChurchMembers]        = useState([]);
   const [churchMembersLoading, setChurchMembersLoading] = useState(false);
-
   const [snack, setSnack] = useState({ visible: false, text: "" });
-
-  // Cores do tema centralizadas (padrão do manual)
-  const tc = useMemo(() => ({
-    surface: SURFACE,
-    bg: BG,
-    outline: BORDER,
-    text: NAVY,
-    muted: MUTED,
-    primary: BRAND,
-  }), []);
 
   const loadCell = useCallback(async (mode = "load") => {
     if (!cellId) {
@@ -287,14 +448,12 @@ export default function CellDetailsScreen({ navigation, route }) {
       setRefreshing(false);
       return;
     }
-
     if (mode === "refresh") setRefreshing(true);
     else setLoading(true);
     setError("");
 
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 15000);
-
     try {
       const data = await authedFetch(`/cells/${cellId}`, { signal: controller.signal }, authCtx);
       setCell(data);
@@ -312,9 +471,7 @@ export default function CellDetailsScreen({ navigation, route }) {
   }, [cellId, authCtx]);
 
   useFocusEffect(
-    useCallback(() => {
-      loadCell("load");
-    }, [loadCell])
+    useCallback(() => { loadCell("load"); }, [loadCell])
   );
 
   const churchId = cell?.churchId || authCtx?.activeChurch?.id || null;
@@ -329,13 +486,15 @@ export default function CellDetailsScreen({ navigation, route }) {
     if (!churchId) { setChurchMembers([]); return; }
     setChurchMembersLoading(true);
     try {
-      const data = await authedFetch(`/members?churchId=${encodeURIComponent(churchId)}`, {}, authCtx);
+      const data = await authedFetch(
+        `/members?churchId=${encodeURIComponent(churchId)}`, {}, authCtx
+      );
       const list = Array.isArray(data) ? data : data?.items || data?.members || [];
       const normalized = list
         .map((x) => ({
-          id: x.id,
+          id:       x.id,
           fullName: x.fullName || x.name || "Membro",
-          phone: x.phone || null,
+          phone:    x.phone || null,
           photoUrl: x.photoUrl || null,
         }))
         .filter((m) => !!m.id)
@@ -373,7 +532,7 @@ export default function CellDetailsScreen({ navigation, route }) {
   const accentLight = withAlpha(accentColor, "18");
 
   const meetingLabel = useMemo(() => {
-    const d = cell?.meetingDay ? String(cell.meetingDay) : "";
+    const d = cell?.meetingDay  ? String(cell.meetingDay)  : "";
     const t = cell?.meetingTime ? String(cell.meetingTime) : "";
     if (d && t) return `${d} às ${t}`;
     return d || t || "Reunião não definida";
@@ -381,7 +540,6 @@ export default function CellDetailsScreen({ navigation, route }) {
 
   const memberCount = cell?._count?.members ?? cell?.members?.length ?? 0;
 
-  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.centeredFull}>
@@ -407,7 +565,7 @@ export default function CellDetailsScreen({ navigation, route }) {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Erro ──────────────────────────────────────────────────────────── */}
+        {/* ── Erro ─────────────────────────────────────────────────────────── */}
         {!!error && (
           <Surface elevation={0} style={styles.errorCard}>
             <Text style={styles.errorTitle}>Não foi possível carregar</Text>
@@ -433,22 +591,17 @@ export default function CellDetailsScreen({ navigation, route }) {
           </Surface>
         )}
 
-        {/* ── Hero Card ─────────────────────────────────────────────────────── */}
+        {/* ── Hero Card ────────────────────────────────────────────────────── */}
         {!!cell && (
           <Surface elevation={2} style={styles.heroCard}>
-            {/* Faixa de acento */}
             <View style={[styles.heroStrip, { backgroundColor: accentColor }]} />
 
             <View style={{ padding: 16, gap: 14 }}>
               {/* Cabeçalho */}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                {/* Avatar da célula */}
                 <Surface
                   elevation={0}
-                  style={[
-                    styles.cellAvatar,
-                    { backgroundColor: accentLight, borderColor: accentColor },
-                  ]}
+                  style={[styles.cellAvatar, { backgroundColor: accentLight, borderColor: accentColor }]}
                 >
                   {isHttpUrl(cell?.photoUrl) ? (
                     <Image
@@ -464,7 +617,6 @@ export default function CellDetailsScreen({ navigation, route }) {
                   <Text style={styles.heroName} numberOfLines={1}>
                     {cell?.name || "Célula"}
                   </Text>
-                  {/* Pill de reunião */}
                   <View style={[styles.pill, { backgroundColor: accentLight }]}>
                     <View style={[styles.pillDot, { backgroundColor: accentColor }]} />
                     <Text style={[styles.pillText, { color: accentColor }]}>
@@ -473,16 +625,17 @@ export default function CellDetailsScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                <TouchableRipple
-                  onPress={() => setAddOpen(true)}
-                  borderless
-                  style={[styles.addBtn, { backgroundColor: accentLight }]}
-                >
-                  <Text style={{ fontSize: 20 }}>➕</Text>
-                </TouchableRipple>
+                {canEdit && (
+                  <TouchableRipple
+                    onPress={() => setAddOpen(true)}
+                    borderless
+                    style={[styles.addBtn, { backgroundColor: accentLight }]}
+                  >
+                    <Text style={{ fontSize: 20 }}>➕</Text>
+                  </TouchableRipple>
+                )}
               </View>
 
-              {/* Descrição */}
               {!!cell?.description && (
                 <Text style={[styles.mutedText, { lineHeight: 20 }]}>
                   {cell.description}
@@ -491,7 +644,6 @@ export default function CellDetailsScreen({ navigation, route }) {
 
               <Divider style={{ backgroundColor: BORDER }} />
 
-              {/* Info rows */}
               <ModalInfoRow
                 icon="👤"
                 label="LÍDER"
@@ -511,52 +663,60 @@ export default function CellDetailsScreen({ navigation, route }) {
 
               {/* Botões de ação */}
               <View style={{ flexDirection: "row", gap: 10 }}>
-                <Button
-                  mode="contained"
-                  icon="pencil-outline"
-                  onPress={() =>
-                    navigation.navigate("CellCreate", {
-                      cellId,
-                      id: cellId,
-                      mode: "edit",
-                      cell,
-                    })
-                  }
-                  style={[styles.btnContained, { flex: 1 }]}
-                  buttonColor={accentLight}
-                  textColor={accentColor}
-                >
-                  Editar
-                </Button>
+                {canEdit && (
+                  <Button
+                    mode="contained"
+                    icon="pencil-outline"
+                    onPress={() =>
+                      navigation.navigate("CellCreate", {
+                        cellId,
+                        id: cellId,
+                        mode: "edit",
+                        cell,
+                      })
+                    }
+                    style={[styles.btnContained, { flex: 1 }]}
+                    buttonColor={accentLight}
+                    textColor={accentColor}
+                  >
+                    Editar
+                  </Button>
+                )}
 
-                <Button
-                  mode="outlined"
-                  icon="file-document-outline"
-                  onPress={() => navigation.navigate("CellReports", { id: cellId })}
-                  style={[styles.btnOutline, { flex: 1 }]}
-                  textColor={BRAND}
-                >
-                  Relatórios
-                </Button>
+                {canViewActions && (
+                  <Button
+                    mode="outlined"
+                    icon="file-document-outline"
+                    onPress={() => navigation.navigate("CellReports", { id: cellId })}
+                    style={[styles.btnOutline, { flex: 1 }]}
+                    textColor={BRAND}
+                  >
+                    Relatórios
+                  </Button>
+                )}
 
-                <Button
-                  mode="contained"
-                  icon="calendar-check-outline"
-                  onPress={() => navigation.navigate("CellMeeting", { id: cellId })}
-                  style={[styles.btnContained, { flex: 1 }]}
-                  buttonColor={accentColor}
-                >
-                  Encontro
-                </Button>
+                {canViewActions && (
+                  <Button
+                    mode="contained"
+                    icon="calendar-check-outline"
+                    onPress={() => navigation.navigate("CellMeeting", { id: cellId })}
+                    style={[styles.btnContained, { flex: 1 }]}
+                    buttonColor={accentColor}
+                  >
+                    Encontro
+                  </Button>
+                )}
               </View>
             </View>
           </Surface>
         )}
 
-        {/* ── Seção de membros ──────────────────────────────────────────────── */}
+        {/* ── Seção de Localização ─────────────────────────────────────────── */}
+        {!!cell && <AddressCard cell={cell} accentColor={accentColor} />}
+
+        {/* ── Seção de membros ─────────────────────────────────────────────── */}
         {!!cell && (
           <View style={{ marginTop: 18 }}>
-            {/* Section header */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Membros</Text>
               <View style={[styles.countChip, { backgroundColor: accentLight }]}>
@@ -566,7 +726,6 @@ export default function CellDetailsScreen({ navigation, route }) {
               </View>
             </View>
 
-            {/* Card de membros */}
             <Surface elevation={0} style={styles.membersCard}>
               {Array.isArray(cell?.members) && cell.members.length > 0 ? (
                 cell.members.map((m, i) => (
@@ -582,17 +741,24 @@ export default function CellDetailsScreen({ navigation, route }) {
                   <Text style={{ fontSize: 32, textAlign: "center" }}>👥</Text>
                   <Text style={styles.emptyTitle}>Nenhum membro ainda</Text>
                   <Text style={styles.mutedText}>
-                    Adicione o primeiro membro à esta célula.
+                    {canEdit
+                      ? "Adicione o primeiro membro à esta célula."
+                      : "Nenhum membro cadastrado nesta célula."}
                   </Text>
-                  <TouchableRipple
-                    onPress={() => setAddOpen(true)}
-                    borderless
-                    style={[styles.emptyAddBtn, { backgroundColor: accentLight, borderColor: accentColor }]}
-                  >
-                    <Text style={[styles.emptyAddText, { color: accentColor }]}>
-                      + Adicionar membro
-                    </Text>
-                  </TouchableRipple>
+                  {canEdit && (
+                    <TouchableRipple
+                      onPress={() => setAddOpen(true)}
+                      borderless
+                      style={[
+                        styles.emptyAddBtn,
+                        { backgroundColor: accentLight, borderColor: accentColor },
+                      ]}
+                    >
+                      <Text style={[styles.emptyAddText, { color: accentColor }]}>
+                        + Adicionar membro
+                      </Text>
+                    </TouchableRipple>
+                  )}
                 </View>
               )}
             </Surface>
@@ -602,17 +768,17 @@ export default function CellDetailsScreen({ navigation, route }) {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* ── Modal de adicionar membro ────────────────────────────────────────── */}
-      <MemberCascadeModal
-        visible={addOpen}
-        onDismiss={() => setAddOpen(false)}
-        items={churchMembers}
-        loading={churchMembersLoading}
-        selectedIds={memberIdsInCell}
-        onPick={addMemberToCell}
-      />
+      {canEdit && (
+        <MemberCascadeModal
+          visible={addOpen}
+          onDismiss={() => setAddOpen(false)}
+          items={churchMembers}
+          loading={churchMembersLoading}
+          selectedIds={memberIdsInCell}
+          onPick={addMemberToCell}
+        />
+      )}
 
-      {/* ── Snackbar ─────────────────────────────────────────────────────────── */}
       <Snackbar
         visible={snack.visible}
         onDismiss={() => setSnack({ visible: false, text: "" })}
@@ -625,10 +791,10 @@ export default function CellDetailsScreen({ navigation, route }) {
   );
 }
 
-// ─── Estilos (design system do manual) ───────────────────────────────────────
+// ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
-  content: { padding: 16, paddingBottom: 16, gap: 12 },
+  content:   { padding: 16, paddingBottom: 16, gap: 12 },
 
   centeredFull: { flex: 1, backgroundColor: BG, alignItems: "center", justifyContent: "center" },
   loadingCard: {
@@ -639,13 +805,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
     ...Platform.select({
-      ios: { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+      ios:     { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
       android: { elevation: 2 },
     }),
   },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10 },
 
-  // Hero card
   heroCard: {
     borderRadius: 20,
     backgroundColor: SURFACE,
@@ -653,70 +818,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
     ...Platform.select({
-      ios: { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+      ios:     { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
       android: { elevation: 2 },
     }),
   },
   heroStrip: { height: 4 },
-  heroName: { fontSize: 20, fontWeight: "900", color: NAVY, letterSpacing: -0.5 },
+  heroName:  { fontSize: 20, fontWeight: "900", color: NAVY, letterSpacing: -0.5 },
 
-  // Avatar da célula
   cellAvatar: {
-    width: 52,
-    height: 52,
+    width: 52, height: 52,
     borderRadius: 999,
     borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center", justifyContent: "center",
     overflow: "hidden",
   },
 
-  // Pill de info
   pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
+    flexDirection: "row", alignItems: "center", gap: 5,
     alignSelf: "flex-start",
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 10, paddingVertical: 4,
     marginTop: 5,
   },
   pillDot: { width: 6, height: 6, borderRadius: 999 },
   pillText: { fontSize: 11, fontWeight: "700" },
 
-  // Botão de adicionar (hero)
   addBtn: {
-    width: 40,
-    height: 40,
+    width: 40, height: 40,
     borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center", justifyContent: "center",
   },
 
-  // Info row (modal)
   infoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   infoIcon: {
-    width: 36,
-    height: 36,
+    width: 36, height: 36,
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center", justifyContent: "center",
   },
-  infoLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    color: MUTED,
-  },
+  infoLabel: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5, color: MUTED },
   infoValue: { fontSize: 14, fontWeight: "600", color: NAVY },
 
-  // Botões
-  btnOutline: { borderRadius: 999, borderColor: BORDER },
+  btnOutline:   { borderRadius: 999, borderColor: BORDER },
   btnContained: { borderRadius: 999 },
 
-  // Erro
   errorCard: {
     borderRadius: 20,
     backgroundColor: "#FEF5F5",
@@ -727,19 +871,81 @@ const styles = StyleSheet.create({
   },
   errorTitle: { fontSize: 16, fontWeight: "900", color: NAVY },
 
-  // Section header
-  sectionHeader: {
+  // ── Endereço / Mapa ────────────────────────────────────────────────────────
+  addressCard: {
+    borderRadius: 20,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+    overflow: "hidden",
+    ...Platform.select({
+      ios:     { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 2 },
+    }),
+  },
+
+  mapContainer: {
+    width: "100%",
+    height: 160,
+    backgroundColor: "#E8EAF6",
+    overflow: "hidden",
+    position: "relative",
+  },
+  mapImage: {
+    width: "100%",
+    height: "100%",
+  },
+  mapOverlay: {
+    position: "absolute",
+    bottom: 12,
+    right: 12,
+  },
+  mapPinBadge: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    paddingHorizontal: 2,
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    ...Platform.select({
+      ios:     { shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+      android: { elevation: 4 },
+    }),
   },
-  sectionTitle: { fontSize: 16, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
-  countChip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
+  mapPinIcon: { fontSize: 14 },
+  mapPinText: { fontSize: 12, fontWeight: "800", color: "#fff" },
+  mapGradient: {
+    position: "absolute",
+    bottom: 0, left: 0, right: 0,
+    height: 48,
+    // Efeito de fade sutil no rodapé do mapa (sem LinearGradient)
+    backgroundColor: "transparent",
+  },
+
+  directionsBtn: {
+    borderRadius: 999,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  directionsBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 11,
+  },
+  directionsBtnText: { fontSize: 13, fontWeight: "800" },
+
+  // ── Seção / membros ────────────────────────────────────────────────────────
+  sectionHeader: {
+    flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12, paddingHorizontal: 2,
+  },
+  sectionTitle:  { fontSize: 16, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
+  countChip:     { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
   countChipText: { fontSize: 12, fontWeight: "800" },
 
-  // Card de membros
   membersCard: {
     borderRadius: 20,
     backgroundColor: SURFACE,
@@ -747,53 +953,36 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     overflow: "hidden",
     ...Platform.select({
-      ios: { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+      ios:     { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
       android: { elevation: 2 },
     }),
   },
 
-  // Linha de membro
   memberRowWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingVertical: 13, paddingHorizontal: 14,
   },
-  memberBar: {
-    width: 3,
-    alignSelf: "stretch",
-    borderRadius: 999,
-    flexShrink: 0,
-  },
+  memberBar: { width: 3, alignSelf: "stretch", borderRadius: 999, flexShrink: 0 },
   memberName: { fontSize: 13, fontWeight: "800", color: NAVY, letterSpacing: -0.2 },
   memberMeta: { fontSize: 12, color: MUTED, marginTop: 2 },
 
-  // Empty state
-  emptyState: {
-    alignItems: "center",
-    padding: 24,
-    gap: 8,
-  },
+  emptyState: { alignItems: "center", padding: 24, gap: 8 },
   emptyTitle: { fontSize: 15, fontWeight: "900", color: NAVY },
   emptyAddBtn: {
     borderRadius: 999,
     borderWidth: 1.5,
     borderStyle: "dashed",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 20, paddingVertical: 10,
     marginTop: 4,
   },
   emptyAddText: { fontSize: 13, fontWeight: "800" },
 
-  // Modal bottom sheet
+  // ── Modal ──────────────────────────────────────────────────────────────────
   modalSheet: {
     justifyContent: "flex-end",
     margin: 0,
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 0, left: 0, right: 0,
     backgroundColor: SURFACE,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -801,22 +990,16 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   modalHandle: {
-    width: 44,
-    height: 5,
+    width: 44, height: 5,
     borderRadius: 999,
     backgroundColor: "#E0E0E0",
     alignSelf: "center",
     marginTop: 12,
   },
-  modalStrip: { height: 4, marginTop: 6 },
-  modalHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  modalTitle: { fontSize: 18, fontWeight: "900", color: NAVY, letterSpacing: -0.4 },
+  modalStrip:     { height: 4, marginTop: 6 },
+  modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  modalTitle:     { fontSize: 18, fontWeight: "900", color: NAVY, letterSpacing: -0.4 },
 
-  // Busca no modal
   searchBar: {
     borderRadius: 14,
     backgroundColor: BG,
@@ -825,29 +1008,16 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
 
-  // Linha de pick de membro (modal)
-  memberPickRow: {
-    borderRadius: 18,
-    marginBottom: 8,
-    overflow: "hidden",
-  },
+  memberPickRow:   { borderRadius: 18, marginBottom: 8, overflow: "hidden" },
   memberPickInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    flexDirection: "row", alignItems: "center", gap: 12,
     padding: 12,
     backgroundColor: SURFACE,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: BORDER,
+    borderWidth: 1, borderColor: BORDER,
   },
-  addChip: {
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-  },
+  addChip:     { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
   addChipText: { fontSize: 11, fontWeight: "800" },
 
-  // Texto muted genérico
   mutedText: { fontSize: 13, color: MUTED, lineHeight: 20 },
 });

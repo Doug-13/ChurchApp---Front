@@ -669,6 +669,32 @@ export default function MemberAdminDetailsScreen({ navigation, route }) {
           </>
         )}
 
+        {/* ── Permissões ── */}
+        <SectionHeader title="Permissões de acesso" />
+        <TouchableRipple
+          onPress={() => navigation.navigate("MemberPermissions", { member })}
+          borderless
+          style={[styles.permissionsCard, { backgroundColor: tc.surface, borderColor: tc.outline }]}
+        >
+          <View style={styles.permissionsCardInner}>
+            <View style={[styles.permissionsIconWrap, { backgroundColor: BRAND_LIGHT }]}>
+              <Icon source="shield-account-outline" size={22} color={BRAND_BLUE} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.permissionsTitle}>Gerenciar permissões</Text>
+              <Text style={[styles.permissionsDesc, { color: tc.muted }]}>
+                Role, células, eventos, avisos, membros e mais
+              </Text>
+            </View>
+            <View style={[styles.permissionsBadge, { backgroundColor: BRAND_LIGHT }]}>
+              <Text style={[styles.permissionsBadgeText, { color: BRAND_BLUE }]}>
+                {member.role || "Membro"}
+              </Text>
+            </View>
+            <Icon source="chevron-right" size={18} color={tc.muted} />
+          </View>
+        </TouchableRipple>
+
         {/* ── Ações administrativas ── */}
         <SectionHeader title="Ações administrativas" />
         <Surface elevation={0} style={[styles.card, { backgroundColor: tc.surface, borderColor: tc.outline }]}>
@@ -824,4 +850,22 @@ const styles = StyleSheet.create({
   actionRow: { borderRadius: 8, overflow: "hidden" },
   actionRowInner: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 4 },
   actionLabel: { flex: 1, fontSize: 14, fontWeight: "700", color: NAVY },
+
+  // ── Permissions card
+  permissionsCard: {
+    borderWidth: 1,
+    borderRadius: 20,
+    marginBottom: 0,
+    overflow: "hidden",
+    ...Platform.select({
+      ios:     { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 2 },
+    }),
+  },
+  permissionsCardInner:  { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
+  permissionsIconWrap:   { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  permissionsTitle:      { fontSize: 14, fontWeight: "900", color: NAVY, marginBottom: 2 },
+  permissionsDesc:       { fontSize: 12, lineHeight: 17 },
+  permissionsBadge:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  permissionsBadgeText:  { fontSize: 11, fontWeight: "900" },
 });

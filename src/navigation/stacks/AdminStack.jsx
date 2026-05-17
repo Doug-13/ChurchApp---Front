@@ -5,6 +5,7 @@ import AdminDashboardScreen from "../../screens/admin/AdminDashboardScreen";
 import MembersManageScreen from "../../screens/admin/MembersManageScreen";
 import MemberFormScreen from "../../screens/admin/MemberFormScreen";
 import MemberAdminDetailsScreen from "../../screens/admin/MemberAdminDetailsScreen";
+import MemberPermissionsScreen from "../../screens/admin/MemberPermissionsScreen";
 import EventsManageScreen from "../../screens/admin/EventsManageScreen";
 import CellsManageScreen from "../../screens/admin/CellsManageScreen";
 import NewsComposerScreen from "../../screens/admin/NewsComposerScreen";
@@ -16,7 +17,7 @@ import EventsSelectMinistryScreen from "../../screens/admin/EventsSelectMinistry
 import EventsSelectPeopleScreen from "../../screens/admin/EventsSelectPeopleScreen";
 import EventsPreviewScreen from "../../screens/admin/EventsPreviewScreen";
 import EventComposerScreen from "../../screens/admin/EventComposerScreen";
-// import BirthdaysScreen from "../../screens/admin/MembersBirthdayScreen";
+import BirthdaysScreen from "../../screens/admin/MembersBirthdayScreen";
 
 import CellCreateScreen from "../../screens/cells/CellCreateScreen";
 import CellDetailsScreen from "../../screens/cells/CellDetailsScreen";
@@ -31,6 +32,7 @@ export default function AdminStack() {
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: "Admin", headerShown: false, }} />
       <Stack.Screen name="MembersManage" component={MembersManageScreen} options={{ title: "Membros" }} />
       <Stack.Screen name="MemberAdminDetails" component={MemberAdminDetailsScreen} options={{ title: "Detalhes" }} />
+      <Stack.Screen name="MemberPermissions" component={MemberPermissionsScreen} options={{ title: "Permissões" }} />
       <Stack.Screen name="MemberForm" component={MemberFormScreen} options={{ title: "Cadastro" }} />
       <Stack.Screen name="EventsManageScreen" component={EventsManageScreen} options={{ title: "Eventos" }} />
 
@@ -53,7 +55,7 @@ export default function AdminStack() {
       <Stack.Screen name="EventsSelectMinistry" component={EventsSelectMinistryScreen} options={{ title: "Ministério" }} />
       <Stack.Screen name="EventsSelectPeople" component={EventsSelectPeopleScreen} options={{ title: "Equipe" }} />
       <Stack.Screen name="EventsPreview" component={EventsPreviewScreen} options={{ title: "Prévia" }} />
-      {/* <Stack.Screen name="Birthdays" component={BirthdaysScreen} options={{ title: "Aniversariantes" }} /> */}
+      <Stack.Screen name="Birthdays" component={BirthdaysScreen} options={{ title: "Aniversariantes" }} />
     </Stack.Navigator>
   );
 }

@@ -6,11 +6,11 @@ import { getAuth, getIdToken } from "@react-native-firebase/auth";
 import auth from "@react-native-firebase/auth";
 
 // ─── Configuração única de ambiente ───────────────────────────
-const MODE = "online"; // 'local' | 'online'
+const MODE = "local"; // 'local' | 'online'
 
 export const API_BASE_URL =
   MODE === "local"
-    ? "http://192.168.150.35:3000"
+    ? "http://192.168.1.47:3000"
     : "https://churchapp-back.onrender.com";
 
 // ─── Instância Axios (para quem usa axios) ─────────────────────

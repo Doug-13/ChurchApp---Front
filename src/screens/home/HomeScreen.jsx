@@ -28,6 +28,20 @@ import { getAuth, getIdToken } from "@react-native-firebase/auth";
 import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 
+// ─── Quick Actions dinâmicas por permissão ────────────────────────────────────
+//
+// Usa can() do AuthContext — sempre sincronizado com role + extraPermissions.
+// Isso substitui a lógica manual de comparação de strings de role.
+
+function buildQuickActions() {
+  return [
+    { icon: "account-group-outline", label: "Membros",      route: "HomeTab",  screen: "Directory",      color: "#2DBF8A", bg: "#E8F9F3" },
+    { icon: "cake-variant-outline",  label: "Aniversários", route: "HomeTab",  screen: "Birthdays",      color: "#E84D4D", bg: "#FEECEC" },
+    { icon: "layers-outline",        label: "Ministérios",  route: "AdminTab", screen: "MinistriesManage", color: "#7C3AED", bg: "#F3EFFF" },
+    { icon: "dots-horizontal",       label: "Mais",         route: "MoreTab",                             color: "#9198B5", bg: null      },
+  ];
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const NAVY = "#1A2366";
@@ -36,42 +50,33 @@ const SCREEN_W = Dimensions.get("window").width;
 const CARD_W = SCREEN_W * 0.60;
 const CARD_GAP = 12;
 
-const QUICK_ACTIONS = [
-  { icon: "bullhorn-outline",       label: "Avisos",       route: "NewsTab",       screen: "NewsFeed",        color: "#4158D0", bg: "#EEF0FA" },
-  { icon: "calendar-star",          label: "Eventos",      route: "Events",        screen: "EventsList",       color: "#F5A623", bg: "#FEF5E7" },
-  { icon: "account-group-outline",  label: "Membros",      route: "HomeTab",       screen: "Directory",        color: "#2DBF8A", bg: "#E8F9F3" },
-  { icon: "calendar-check-outline", label: "Escalas",      route: "SchedulesTab",  screen: "MySchedules",      color: "#C84AB5", bg: "#FBE9F8" },
-  { icon: "cake-variant-outline",   label: "Aniversários", route: "HomeTab",       screen: "Birthdays",        color: "#E84D4D", bg: "#FEECEC" },
-  { icon: "grid-large",             label: "Células",      route: "CellsTab",      screen: "CellsList",        color: "#2E8AE5", bg: "#E6F4FF" },
-  { icon: "shield-account-outline", label: "Admin",        route: "AdminTab",      screen: "AdminDashboard",   color: "#7B61FF", bg: "#F3F0FF" },
-  { icon: "dots-horizontal",        label: "Mais",         route: "MoreTab",                                   color: "#9198B5", bg: null      },
-];
+// QUICK_ACTIONS substituído por buildQuickActions(can) — ver função acima
 
 const NEWS_TYPE_META = {
-  GENERAL:       { icon: "bullhorn-outline",        color: "#2DBF8A", bg: "#E8F9F3", label: "Geral"        },
-  URGENT:        { icon: "alert-circle",            color: "#E84D4D", bg: "#FEECEC", label: "Urgente"      },
-  IMPORTANT:     { icon: "information",             color: "#4158D0", bg: "#EEF0FA", label: "Importante"   },
-  WARNING:       { icon: "alert",                   color: "#F5A623", bg: "#FEF5E7", label: "Atenção"      },
-  INFO:          { icon: "information-outline",     color: "#2E8AE5", bg: "#E6F4FF", label: "Informativo"  },
-  EVENT:         { icon: "calendar-star",           color: "#7C3AED", bg: "#F1EAFE", label: "Evento"       },
-  SOCIAL_ACTION: { icon: "hand-heart",              color: "#E85D75", bg: "#FDECEF", label: "Ação social"  },
-  MEETING:       { icon: "account-group",           color: "#0EA5E9", bg: "#E7F6FE", label: "Reunião"      },
-  LEADERSHIP:    { icon: "account-tie",             color: "#6246EA", bg: "#EFECFF", label: "Liderança"    },
-  PRAYER:        { icon: "hands-pray",              color: "#14B8A6", bg: "#E6FFFA", label: "Oração"       },
-  WORSHIP:       { icon: "music-clef-treble",       color: "#EC4899", bg: "#FCE7F3", label: "Louvor"       },
-  SCALE:         { icon: "clipboard-list-outline",  color: "#F97316", bg: "#FFF3E8", label: "Escala"       },
-  TRAINING:      { icon: "school-outline",          color: "#2563EB", bg: "#EAF0FF", label: "Treinamento"  },
-  CHILDREN:      { icon: "baby-face-outline",       color: "#06B6D4", bg: "#E6FAFD", label: "Infantil"     },
-  YOUTH:         { icon: "account-star-outline",    color: "#8B5CF6", bg: "#F3EFFF", label: "Jovens"       },
-  WOMEN:         { icon: "human-female",            color: "#EC4899", bg: "#FCE7F3", label: "Mulheres"     },
-  MEN:           { icon: "human-male",              color: "#2563EB", bg: "#EAF0FF", label: "Homens"       },
-  FINANCE:       { icon: "cash-multiple",           color: "#16A34A", bg: "#EAFBF0", label: "Financeiro"   },
-  VOLUNTEERS:    { icon: "account-heart-outline",   color: "#22C55E", bg: "#EAFBF0", label: "Voluntários"  },
+  GENERAL: { icon: "bullhorn-outline", color: "#2DBF8A", bg: "#E8F9F3", label: "Geral" },
+  URGENT: { icon: "alert-circle", color: "#E84D4D", bg: "#FEECEC", label: "Urgente" },
+  IMPORTANT: { icon: "information", color: "#4158D0", bg: "#EEF0FA", label: "Importante" },
+  WARNING: { icon: "alert", color: "#F5A623", bg: "#FEF5E7", label: "Atenção" },
+  INFO: { icon: "information-outline", color: "#2E8AE5", bg: "#E6F4FF", label: "Informativo" },
+  EVENT: { icon: "calendar-star", color: "#7C3AED", bg: "#F1EAFE", label: "Evento" },
+  SOCIAL_ACTION: { icon: "hand-heart", color: "#E85D75", bg: "#FDECEF", label: "Ação social" },
+  MEETING: { icon: "account-group", color: "#0EA5E9", bg: "#E7F6FE", label: "Reunião" },
+  LEADERSHIP: { icon: "account-tie", color: "#6246EA", bg: "#EFECFF", label: "Liderança" },
+  PRAYER: { icon: "hands-pray", color: "#14B8A6", bg: "#E6FFFA", label: "Oração" },
+  WORSHIP: { icon: "music-clef-treble", color: "#EC4899", bg: "#FCE7F3", label: "Louvor" },
+  SCALE: { icon: "clipboard-list-outline", color: "#F97316", bg: "#FFF3E8", label: "Escala" },
+  TRAINING: { icon: "school-outline", color: "#2563EB", bg: "#EAF0FF", label: "Treinamento" },
+  CHILDREN: { icon: "baby-face-outline", color: "#06B6D4", bg: "#E6FAFD", label: "Infantil" },
+  YOUTH: { icon: "account-star-outline", color: "#8B5CF6", bg: "#F3EFFF", label: "Jovens" },
+  WOMEN: { icon: "human-female", color: "#EC4899", bg: "#FCE7F3", label: "Mulheres" },
+  MEN: { icon: "human-male", color: "#2563EB", bg: "#EAF0FF", label: "Homens" },
+  FINANCE: { icon: "cash-multiple", color: "#16A34A", bg: "#EAFBF0", label: "Financeiro" },
+  VOLUNTEERS: { icon: "account-heart-outline", color: "#22C55E", bg: "#EAFBF0", label: "Voluntários" },
 };
 
 const LEGACY_TYPE_MAP = {
-  "Aviso":       "GENERAL",
-  "Evento":      "EVENT",
+  "Aviso": "GENERAL",
+  "Evento": "EVENT",
   "Ação social": "SOCIAL_ACTION",
   "Acao social": "SOCIAL_ACTION",
 };
@@ -80,8 +85,8 @@ const LEGACY_TYPE_MAP = {
 
 function roleLabel(role) {
   const r = String(role || "").toUpperCase();
-  if (r === "OWNER")  return "Responsável";
-  if (r === "ADMIN")  return "Admin";
+  if (r === "OWNER") return "Responsável";
+  if (r === "ADMIN") return "Admin";
   if (r === "LEADER") return "Líder";
   return "Membro";
 }
@@ -90,7 +95,7 @@ async function authFetch(path, opts = {}) {
   const { method = "GET", body } = opts;
   const fbUser = getAuth().currentUser;
   if (!fbUser) throw new Error("Usuário não autenticado.");
-  const token = await getIdToken(fbUser, false);
+  const token = await getIdToken(fbUser, true);
   const url = `${API_BASE_URL}${path}`;
   const res = await fetch(url, {
     method,
@@ -109,15 +114,24 @@ async function authFetch(path, opts = {}) {
 }
 
 function toArray(val) {
-  if (Array.isArray(val))        return val;
+  if (Array.isArray(val)) return val;
   if (Array.isArray(val?.items)) return val.items;
-  if (Array.isArray(val?.data))  return val.data;
+  if (Array.isArray(val?.data)) return val.data;
   return [];
 }
 
 function isPast(dateLabel) {
   if (!dateLabel) return false;
   return new Date(`${dateLabel}T23:59:59`) < new Date();
+}
+
+function isToday(dateLabel) {
+  if (!dateLabel) return false;
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const d = String(today.getDate()).padStart(2, "0");
+  return dateLabel === `${y}-${m}-${d}`;
 }
 
 function formatShortDate(dateLabel) {
@@ -142,14 +156,14 @@ function formatNewsDate(raw) {
   if (!raw) return "";
   const d = new Date(raw);
   if (isNaN(d.getTime())) return "";
-  const diff  = Date.now() - d.getTime();
-  const mins  = Math.floor(diff / 60000);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
   const hours = Math.floor(mins / 60);
-  const days  = Math.floor(hours / 24);
-  if (mins  < 60) return `${mins}min atrás`;
+  const days = Math.floor(hours / 24);
+  if (mins < 60) return `${mins}min atrás`;
   if (hours < 24) return `${hours}h atrás`;
   if (days === 1) return "Ontem";
-  if (days  < 7)  return `${days} dias atrás`;
+  if (days < 7) return `${days} dias atrás`;
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
@@ -174,20 +188,22 @@ function getNewsMeta(item) {
   const raw = String(item?.type || item?.category || "").trim();
   if (!raw) return NEWS_TYPE_META.GENERAL;
   const upper = raw.toUpperCase();
-  if (NEWS_TYPE_META[upper]) return NEWS_TYPE_META[upper];
+  if ((NEWS_TYPE_META)[upper]) return (NEWS_TYPE_META)[upper];
   const mapped = LEGACY_TYPE_MAP[raw];
-  if (mapped && NEWS_TYPE_META[mapped]) return NEWS_TYPE_META[mapped];
+  if (mapped && (NEWS_TYPE_META)[mapped]) return (NEWS_TYPE_META)[mapped];
   return NEWS_TYPE_META.GENERAL;
 }
 
 function withAlpha(hex, a) {
-  const h    = String(hex || "").replace("#", "");
+  const h = String(hex || "").replace("#", "");
   const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
-  const n    = parseInt(full, 16);
+  const n = parseInt(full, 16);
   if (isNaN(n)) return null;
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
+// 🖼️ IMG — resolve a URL de imagem de um objeto (tenta múltiplos campos)
+// Campo principal do backend: coverImageUrl (model Event)
 function resolveImageUrl(obj, ...fields) {
   if (!obj) return null;
   for (const f of fields) {
@@ -197,20 +213,23 @@ function resolveImageUrl(obj, ...fields) {
   return null;
 }
 
+// Gera cor de acento do evento — prioriza cor do 1º ministério
 function resolveEventAccent(item) {
   const ministryColor = item?.ministries?.[0]?.color;
   if (ministryColor && /^#[0-9A-Fa-f]{3,8}$/.test(ministryColor)) return ministryColor;
   return item?.color || item?.eventColor || BRAND_BLUE;
 }
 
+// Gera gradiente de 2 cores a partir do acento
 function accentGradient(hex) {
-  const h    = String(hex || BRAND_BLUE).replace("#", "");
+  const h = String(hex || BRAND_BLUE).replace("#", "");
   const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
-  const n    = parseInt(full, 16);
+  const n = parseInt(full, 16);
   if (isNaN(n)) return [BRAND_BLUE, "#6A80E8"];
-  const r     = (n >> 16) & 255;
-  const g     = (n >> 8)  & 255;
-  const b     =  n        & 255;
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  // Cor mais clara para topo do gradiente
   const light = `rgb(${Math.min(r + 60, 255)},${Math.min(g + 60, 255)},${Math.min(b + 80, 255)})`;
   return [light, hex];
 }
@@ -237,10 +256,12 @@ function ModalInfoRow({ icon, label, value, color, tc }) {
 function EventModal({ event, visible, onDismiss, tc }) {
   if (!event) return null;
 
-  const accent   = event?.color || event?.eventColor || BRAND_BLUE;
+  const accent = event?.color || event?.eventColor || BRAND_BLUE;
   const accentBg = withAlpha(accent, 0.1) || tc.iconBg;
-  const past     = isPast(event?.dateLabel);
+  const past = isPast(event?.dateLabel);
   const ministry = (event?.ministries ?? []).map((m) => m.name).join(", ");
+
+  // 🖼️ IMG — campo correto do backend é coverImageUrl
   const coverUrl = resolveImageUrl(event, "coverImageUrl", "coverUrl", "imageUrl", "image", "photoUrl");
 
   return (
@@ -249,19 +270,28 @@ function EventModal({ event, visible, onDismiss, tc }) {
         <Surface style={[s.modalSheet, { backgroundColor: tc.surface }]} elevation={0}>
           <View style={s.modalHandle} />
 
+          {/* 🖼️ IMG — exibe imagem de capa se disponível, senão gradiente rico */}
           {coverUrl ? (
             <View style={s.modalCoverWrap}>
               <Image source={{ uri: coverUrl }} style={s.modalCoverImage} resizeMode="cover" />
-              <LinearGradient colors={["transparent", "rgba(0,0,0,0.5)"]} style={s.modalCoverOverlay} />
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.5)"]}
+                style={s.modalCoverOverlay}
+              />
             </View>
           ) : (
             <LinearGradient
               colors={accentGradient(accent)}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={s.modalCoverGradient}
             >
               <View style={s.modalGradientBlob} />
-              <Icon source={event?.ministries?.[0]?.icon || "calendar-star"} size={36} color="rgba(255,255,255,0.85)" />
+              <Icon
+                source={(event?.ministries?.[0]?.icon) || "calendar-star"}
+                size={36}
+                color="rgba(255,255,255,0.85)"
+              />
             </LinearGradient>
           )}
 
@@ -270,7 +300,8 @@ function EventModal({ event, visible, onDismiss, tc }) {
               <View style={[s.modalBadge, { backgroundColor: accentBg }]}>
                 <Icon source="calendar" size={14} color={accent} />
                 <Text style={[s.modalBadgeText, { color: accent }]}>
-                  {formatShortDate(event?.dateLabel)}{event?.timeLabel ? ` • ${event.timeLabel}` : ""}
+                  {formatShortDate(event?.dateLabel)}
+                  {event?.timeLabel ? ` • ${event.timeLabel}` : ""}
                 </Text>
               </View>
               {past ? (
@@ -294,10 +325,10 @@ function EventModal({ event, visible, onDismiss, tc }) {
             <Divider style={[s.modalDivider, { backgroundColor: tc.outline }]} />
 
             <View style={s.modalInfoList}>
-              <ModalInfoRow icon="calendar-outline"      label="Data"          value={formatFullDate(event?.dateLabel)} color={accent} tc={tc} />
-              {!!event?.timeLabel   && <ModalInfoRow icon="clock-outline"         label="Horário"       value={event.timeLabel}         color={accent} tc={tc} />}
-              {!!event?.location    && <ModalInfoRow icon="map-marker-outline"    label="Local"         value={event.location}          color={accent} tc={tc} />}
-              {!!ministry           && <ModalInfoRow icon="account-group-outline" label="Ministério"    value={ministry}                color={accent} tc={tc} />}
+              <ModalInfoRow icon="calendar-outline" label="Data" value={formatFullDate(event?.dateLabel)} color={accent} tc={tc} />
+              {!!event?.timeLabel && <ModalInfoRow icon="clock-outline" label="Horário" value={event.timeLabel} color={accent} tc={tc} />}
+              {!!event?.location && <ModalInfoRow icon="map-marker-outline" label="Local" value={event.location} color={accent} tc={tc} />}
+              {!!ministry && <ModalInfoRow icon="account-group-outline" label="Ministério" value={ministry} color={accent} tc={tc} />}
               {!!event?.createdByName && <ModalInfoRow icon="account-circle-outline" label="Organizado por" value={event.createdByName} color={accent} tc={tc} />}
             </View>
           </ScrollView>
@@ -318,12 +349,12 @@ function EventModal({ event, visible, onDismiss, tc }) {
 function NewsModal({ item, visible, onDismiss, tc }) {
   if (!item) return null;
 
-  const meta         = getNewsMeta(item);
-  const expired      = isExpired(item?.expiresAt);
-  const isDraft      = item?.active === false;
+  const meta = getNewsMeta(item);
+  const expired = isExpired(item?.expiresAt);
+  const isDraft = item?.active === false;
   const expiresLabel = formatDateTime(item?.expiresAt);
   const updatedLabel = formatDateTime(item?.updatedAt);
-  const targetName   = item?.targetDepartmentName || item?.departmentName || null;
+  const targetName = item?.targetDepartmentName || item?.departmentName || null;
 
   return (
     <Portal>
@@ -445,51 +476,86 @@ function QuickActionItem({ icon, label, color, bg, dashed, onPress, surfaceColor
 }
 
 function EventCard({ item, onPress, surfaceColor, outlineColor, textColor, mutedColor, primaryContainerColor }) {
-  const accent        = resolveEventAccent(item);
-  const accentBg      = withAlpha(accent, 0.1) || primaryContainerColor;
-  const past          = isPast(item?.dateLabel);
-  const ministries    = item?.ministries ?? [];
-  const ministryLabel = ministries.map((m) => m.name).join(", ");
-  const coverUrl      = resolveImageUrl(item, "coverImageUrl", "coverUrl", "imageUrl", "image", "photoUrl");
-  const ministryIcon  = ministries[0]?.icon || "calendar-star";
+  const accent         = resolveEventAccent(item);
+  const accentBg       = withAlpha(accent, 0.1) || primaryContainerColor;
+  const past           = isPast(item?.dateLabel);
+  const today          = isToday(item?.dateLabel);
+  const ministries     = item?.ministries ?? [];
+  const ministryLabel  = ministries.map((m) => m.name).join(", ");
+
+  // 🖼️ IMG — campo correto do backend é coverImageUrl
+  const coverUrl = resolveImageUrl(item, "coverImageUrl", "coverUrl", "imageUrl", "image", "photoUrl");
+
+  // Ícone do ministério principal para usar no fallback visual
+  const ministryIcon   = ministries[0]?.icon || "calendar-star";
   const gradientColors = accentGradient(accent);
 
   return (
     <TouchableRipple
       borderless onPress={onPress}
-      style={[s.eventCard, { backgroundColor: surfaceColor, borderColor: outlineColor, opacity: past ? 0.62 : 1 }]}
+      style={[
+        s.eventCard,
+        { backgroundColor: surfaceColor, borderColor: today ? accent : outlineColor, opacity: past ? 0.62 : 1 },
+        today && { borderWidth: 2 },
+      ]}
     >
       <View style={{ flex: 1 }}>
+
+        {/* ── Cabeçalho visual: imagem real OU gradiente rico ─────────────── */}
         {coverUrl ? (
           <View style={s.eventCoverWrap}>
             <Image source={{ uri: coverUrl }} style={s.eventCoverImage} resizeMode="cover" />
-            <LinearGradient colors={["transparent", "rgba(0,0,0,0.45)"]} style={s.eventCoverOverlay} />
-            <View style={s.eventDateBadgeOnImage}>
+            {/* Overlay escuro no rodapé da imagem para o badge de data */}
+            <LinearGradient
+              colors={["transparent", "rgba(0,0,0,0.45)"]}
+              style={s.eventCoverOverlay}
+            />
+            {/* Badge de data sobre a imagem */}
+            <View style={[s.eventDateBadgeOnImage]}>
               <Icon source="calendar" size={11} color="#fff" />
               <Text style={s.eventDateTextOnImage}>
                 {formatShortDate(item?.dateLabel)}{item?.timeLabel ? ` • ${item.timeLabel}` : ""}
               </Text>
             </View>
+            {/* Badge "HOJE" no topo esquerdo — aparece só quando o evento é hoje */}
+            {today && (
+              <View style={[s.eventTodayBanner, { backgroundColor: accent }]}>
+                <Icon source="lightning-bolt" size={10} color="#fff" />
+                <Text style={s.eventTodayBannerText}>HOJE</Text>
+              </View>
+            )}
           </View>
         ) : (
+          /* Fallback: gradiente com ícone centralizado */
           <LinearGradient
             colors={gradientColors}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={s.eventCoverGradient}
           >
+            {/* Blob decorativo */}
             <View style={s.eventGradientBlob} />
             <View style={s.eventGradientIconWrap}>
               <Icon source={ministryIcon} size={28} color="rgba(255,255,255,0.9)" />
             </View>
+            {/* Badge de data sobre o gradiente */}
             <View style={s.eventDateBadgeOnImage}>
               <Icon source="calendar" size={11} color="#fff" />
               <Text style={s.eventDateTextOnImage}>
                 {formatShortDate(item?.dateLabel)}{item?.timeLabel ? ` • ${item.timeLabel}` : ""}
               </Text>
             </View>
+            {/* Badge "HOJE" no topo esquerdo — aparece só quando o evento é hoje */}
+            {today && (
+              <View style={[s.eventTodayBanner, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
+                <Icon source="lightning-bolt" size={10} color="#fff" />
+                <Text style={s.eventTodayBannerText}>HOJE</Text>
+              </View>
+            )}
           </LinearGradient>
         )}
 
+        {/* ── Corpo do card ───────────────────────────────────────────────── */}
         <View style={s.eventBody}>
           <Text variant="titleSmall" style={[s.eventTitle, { color: textColor }]} numberOfLines={2}>
             {item?.title ?? "Evento"}
@@ -509,6 +575,11 @@ function EventCard({ item, onPress, surfaceColor, outlineColor, textColor, muted
           <View style={s.eventFooter}>
             {past ? (
               <Text style={[s.eventPast, { color: mutedColor }]}>Realizado</Text>
+            ) : today ? (
+              <View style={[s.eventTodayChip, { backgroundColor: accent }]}>
+                <Icon source="lightning-bolt" size={11} color="#fff" />
+                <Text style={s.eventTodayChipText}>Hoje!</Text>
+              </View>
             ) : (
               <View style={[s.eventChip, { backgroundColor: `${accent}22` }]}>
                 <View style={[s.eventDot, { backgroundColor: accent }]} />
@@ -522,6 +593,216 @@ function EventCard({ item, onPress, surfaceColor, outlineColor, textColor, muted
     </TouchableRipple>
   );
 }
+
+// ─── OnboardingGuide ─────────────────────────────────────────────────────────
+// Exibido quando a igreja ainda não tem eventos nem avisos cadastrados.
+// Orienta o administrador sobre os próximos passos para tornar o app funcional.
+
+// Estilos do OnboardingGuide — prefixo "og" para não colidir com "s"
+const og = StyleSheet.create({
+  root: {
+    marginHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 18,
+    paddingBottom: 14,
+  },
+  headerIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#EEF0FA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: NAVY,
+    letterSpacing: -0.3,
+  },
+  headerSub: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  steps: {
+    paddingHorizontal: 18,
+    paddingBottom: 4,
+    gap: 0,
+  },
+  step: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    paddingVertical: 12,
+    position: "relative",
+  },
+  connector: {
+    position: "absolute",
+    left: 18 + 11,   // centraliza na coluna do ícone (icon width 40 / 2 - linha 1px / 2)
+    top: 52,
+    width: 1,
+    bottom: 0,
+    zIndex: 0,
+  },
+  stepIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+    flexShrink: 0,
+  },
+  stepTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+    marginBottom: 3,
+    marginTop: 9,
+  },
+  stepDesc: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  ctas: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 16,
+    paddingTop: 8,
+  },
+  ctaBtn: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  ctaSecBtn: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+  ctaBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
+  },
+  ctaBtnText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#fff",
+  },
+});
+
+const ONBOARDING_STEPS = [
+  {
+    icon:  "account-plus-outline",
+    color: "#2DBF8A",
+    bg:    "#E8F9F3",
+    title: "Convide membros",
+    desc:  "Compartilhe o app com os participantes da sua igreja para que possam se cadastrar e acompanhar tudo em tempo real.",
+  },
+  {
+    icon:  "layers-outline",
+    color: "#7C3AED",
+    bg:    "#F3EFFF",
+    title: "Crie ministérios",
+    desc:  "Organize sua igreja em grupos (louvor, jovens, crianças...). Facilita direcionar eventos e avisos para o público certo.",
+  },
+  {
+    icon:  "bullhorn-outline",
+    color: "#4158D0",
+    bg:    "#EEF0FA",
+    title: "Publique avisos",
+    desc:  "Comunique-se com toda a igreja ou grupos específicos de forma rápida e organizada.",
+  },
+  {
+    icon:  "calendar-star-outline",
+    color: "#F5A623",
+    bg:    "#FEF5E7",
+    title: "Crie eventos",
+    desc:  "Agende cultos, conferências e encontros. Membros recebem notificação e podem confirmar presença.",
+  },
+];
+
+function OnboardingGuide({ tc, navigation, isAdmin }) {
+  return (
+    <View style={[og.root, { backgroundColor: tc.surface, borderColor: tc.outline }]}>
+      {/* Header */}
+      <View style={og.header}>
+        <View style={og.headerIconWrap}>
+          <Icon source="rocket-launch-outline" size={24} color={NAVY} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={og.headerTitle}>Primeiros passos</Text>
+          <Text style={[og.headerSub, { color: tc.muted }]}>
+            {isAdmin
+              ? "Sua igreja está pronta! Siga estes passos para torná-la funcional."
+              : "Aguarde o administrador configurar a igreja para você."}
+          </Text>
+        </View>
+      </View>
+
+      {/* Steps */}
+      <View style={og.steps}>
+        {ONBOARDING_STEPS.map((step, idx) => (
+          <View key={step.title} style={og.step}>
+            {/* Linha conectora entre steps */}
+            {idx < ONBOARDING_STEPS.length - 1 && (
+              <View style={[og.connector, { backgroundColor: tc.outline }]} />
+            )}
+            <View style={[og.stepIcon, { backgroundColor: step.bg }]}>
+              <Icon source={step.icon} size={20} color={step.color} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[og.stepTitle, { color: step.color }]}>{step.title}</Text>
+              <Text style={[og.stepDesc, { color: tc.muted }]}>{step.desc}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {/* CTAs — apenas para admin */}
+      {isAdmin && (
+        <View style={og.ctas}>
+          <TouchableRipple
+            onPress={() => navigation.navigate("MembersManage")}
+            borderless
+            style={[og.ctaBtn, { backgroundColor: NAVY }]}
+          >
+            <View style={og.ctaBtnInner}>
+              <Icon source="account-plus-outline" size={16} color="#fff" />
+              <Text style={og.ctaBtnText}>Convidar membros</Text>
+            </View>
+          </TouchableRipple>
+
+          <TouchableRipple
+            onPress={() => navigation.navigate("MinistriesManage")}
+            borderless
+            style={[og.ctaSecBtn, { borderColor: tc.outline }]}
+          >
+            <View style={og.ctaBtnInner}>
+              <Icon source="layers-outline" size={16} color={NAVY} />
+              <Text style={[og.ctaBtnText, { color: NAVY }]}>Criar ministério</Text>
+            </View>
+          </TouchableRipple>
+        </View>
+      )}
+    </View>
+  );
+}
+
 
 function EmptyEvents({ surfaceColor, outlineColor, textColor, mutedColor, iconBg, iconColor }) {
   return (
@@ -576,18 +857,25 @@ function NewsRow({ item, isLast, onPress, surfaceColor, outlineColor, textColor,
 
 export default function HomeScreen({ navigation }) {
   const theme = useTheme();
-  const { me } = useAuth();
+  const { me, can, role: authRole, isAdmin } = useAuth();
 
-  const [loading,      setLoading]      = useState(true);
-  const [refreshing,   setRefreshing]   = useState(false);
-  const [church,       setChurch]       = useState(null);
-  const [myRole,       setMyRole]       = useState(null);
-  const [error,        setError]        = useState(null);
-  const [eventsLoading,setEventsLoading]= useState(false);
-  const [events,       setEvents]       = useState([]);
-  const [newsLoading,  setNewsLoading]  = useState(false);
-  const [news,         setNews]         = useState([]);
+    // Ações rápidas filtradas pelas permissões do usuário (via AuthContext)
+  const quickActions = useMemo(() => buildQuickActions(), []);
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [church, setChurch] = useState(null);
+  const [myRole, setMyRole] = useState(null);
+  const [error, setError] = useState(null);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [news, setNews] = useState([]);
+
   const [selectedNews, setSelectedNews] = useState(null);
+  const [membersCount,  setMembersCount]  = useState(null);
+  const [unreadCount,   setUnreadCount]   = useState(0);
+
 
   const cityLine = useMemo(() => {
     if (!church) return "—";
@@ -600,39 +888,77 @@ export default function HomeScreen({ navigation }) {
   }, [me]);
 
   const tc = useMemo(() => ({
-    surface:    theme.colors.surface,
-    bg:         theme.colors.background,
-    outline:    theme.colors.outlineVariant,
-    text:       theme.colors.onSurface,
-    muted:      theme.colors.onSurfaceVariant,
-    primary:    theme.colors.primary,
-    iconBg:     theme.colors.primaryContainer,
-    iconColor:  theme.colors.onPrimaryContainer,
-    errorBg:    theme.colors.errorContainer,
+    surface: theme.colors.surface,
+    bg: theme.colors.background,
+    outline: theme.colors.outlineVariant,
+    text: theme.colors.onSurface,
+    muted: theme.colors.onSurfaceVariant,
+    primary: theme.colors.primary,
+    iconBg: theme.colors.primaryContainer,
+    iconColor: theme.colors.onPrimaryContainer,
+    errorBg: theme.colors.errorContainer,
     errorColor: theme.colors.onErrorContainer,
   }), [theme]);
 
-  const handleQuickActionPress = useCallback((qa) => {
-    if (!qa?.route) return;
-    const parentNavigation = navigation.getParent?.();
-    if (qa.screen) {
-      (parentNavigation || navigation).navigate(qa.route, { screen: qa.screen });
-      return;
-    }
-    (parentNavigation || navigation).navigate(qa.route);
-  }, [navigation]);
+  const handleQuickActionPress = useCallback(
+    (qa) => {
+      if (!qa?.route) return;
+      const parentNavigation = navigation.getParent?.();
+
+      // ✅ Removido o bloco especial de "Aniversários" — agora usa o fluxo padrão
+
+      if (qa.screen) {
+        (parentNavigation || navigation).navigate(qa.route, {
+          screen: qa.screen,
+        });
+        return;
+      }
+
+      (parentNavigation || navigation).navigate(qa.route);
+    },
+    [navigation]
+  );
+
 
   const loadHome = useCallback(async () => {
     setError(null);
 
-    // ✅ Usa o me do AuthContext para evitar chamada duplicada de /users/me
-    const activeChurchId = me?.activeChurchId ?? null;
+    // 🔍 LOG — dados do usuário autenticado
+    const meDb = await authFetch("/users/me");
+    console.log("[HomeScreen] /users/me →", JSON.stringify(meDb, null, 2));
+
+    const activeChurchId = meDb?.activeChurchId ?? null;
 
     const mine = await authFetch("/churches/mine");
+    console.log("[HomeScreen] /churches/mine →", JSON.stringify(mine, null, 2));
 
     const selected =
       (activeChurchId && mine?.find?.((c) => c.id === activeChurchId)) ||
       mine?.[0] || null;
+
+    // 🔍 LOG — igreja selecionada com campos de imagem
+    console.log("[HomeScreen] Igreja selecionada →", JSON.stringify({
+      id: selected?.id,
+      name: selected?.name,
+      logoUrl: selected?.logoUrl,
+      photoUrl: selected?.photoUrl,
+      imageUrl: selected?.imageUrl,
+      coverUrl: selected?.coverUrl,
+      // outros campos de imagem que possam existir:
+      photo: selected?.photo,
+      avatar: selected?.avatar,
+      avatarUrl: selected?.avatarUrl,
+    }, null, 2));
+
+    // 🔍 LOG — dados do usuário me (campos de foto)
+    console.log("[HomeScreen] me (AuthContext) →", JSON.stringify({
+      id: me?.id,
+      name: me?.name,
+      photoUrl: me?.photoUrl,
+      avatarUrl: me?.avatarUrl,
+      imageUrl: me?.imageUrl,
+      photo: me?.photo,
+    }, null, 2));
 
     setChurch(selected);
     setMyRole(selected?.myRole || selected?.role || selected?.members?.[0]?.role || null);
@@ -641,40 +967,83 @@ export default function HomeScreen({ navigation }) {
       setEventsLoading(true);
       setNewsLoading(true);
 
+      // Busca dados completos da igreja em paralelo com eventos e avisos
+      // /churches/mine retorna dados resumidos — /churches/:id retorna about, serviceTimes, etc.
       const [churchFullRes, evRes, newsRes] = await Promise.allSettled([
         authFetch(`/churches/${selected.id}`),
         authFetch(`/churches/${selected.id}/events`),
         authFetch(`/news?churchId=${selected.id}&take=5`),
       ]);
 
-      // ✅ Dados completos da igreja
       if (churchFullRes.status === "fulfilled") {
         const full = churchFullRes.value;
+        // Mescla: dados completos + myRole/myStatus que só vêm do /mine
         setChurch({ ...selected, ...full, myRole: selected?.myRole, myStatus: selected?.myStatus });
+        console.log("[HomeScreen] Igreja completa →", JSON.stringify({
+          about: full?.about, serviceTimes: full?.serviceTimes, site: full?.site,
+        }, null, 2));
+        // Extrai contagem de membros da resposta do backend
+        const mc =
+          full?._count?.members ??
+          full?._count?.roster  ??
+          full?.membersCount    ??
+          full?.totalMembers    ??
+          null;
+        if (mc !== null) setMembersCount(Number(mc));
       }
 
-      // ✅ Eventos — ordena próximos primeiro, passados por último
       if (evRes.status === "fulfilled") {
         const list = toArray(evRes.value);
+
+        // 🔍 LOG — todos os campos relevantes dos eventos (incluindo coverImageUrl e ministries)
+        console.log("[HomeScreen] Eventos recebidos →", list.map((e) => ({
+          id: e?.id,
+          title: e?.title,
+          dateLabel: e?.dateLabel,
+          // ✅ campo correto do backend
+          coverImageUrl: e?.coverImageUrl,
+          galleryUrls: e?.galleryUrls,
+          // ministérios (usados para cor/ícone do gradiente)
+          ministries: (e?.ministries ?? []).map((m) => ({
+            id: m?.id,
+            name: m?.name,
+            color: m?.color,
+            icon: m?.icon,
+          })),
+        })));
+
         const parseDate = (dateStr) => {
           const v = String(dateStr || "").trim();
           return /^\d{4}-\d{2}-\d{2}$/.test(v)
             ? new Date(`${v}T00:00:00`).getTime()
             : Number.MAX_SAFE_INTEGER;
         };
-        const sorted   = [...list].sort((a, b) => parseDate(a?.dateLabel) - parseDate(b?.dateLabel));
+        const sorted = [...list].sort((a, b) => parseDate(a?.dateLabel) - parseDate(b?.dateLabel));
         const upcoming = sorted.filter((e) => !isPast(e?.dateLabel));
-        const past     = sorted.filter((e) =>  isPast(e?.dateLabel)).reverse();
+        const past = sorted.filter((e) => isPast(e?.dateLabel)).reverse();
         setEvents([...upcoming, ...past].slice(0, 6));
       } else {
+        console.warn("[HomeScreen] Erro ao carregar eventos →", evRes.reason);
         setEvents([]);
       }
       setEventsLoading(false);
 
-      // ✅ Avisos — backend já filtra por visibilidade de ministério
-      //    Aqui apenas remove rascunhos/inativos que porventura venham
       if (newsRes.status === "fulfilled") {
         const list = toArray(newsRes.value);
+
+        // 🔍 LOG — campos dos avisos
+        console.log("[HomeScreen] Avisos recebidos →", list.map((n) => ({
+          id: n?.id,
+          title: n?.title,
+          type: n?.type,
+          category: n?.category,
+          active: n?.active,
+          status: n?.status,
+          publishedAt: n?.publishedAt,
+          createdAt: n?.createdAt,
+          expiresAt: n?.expiresAt,
+        })));
+
         const active = list.filter((n) => {
           if (n?.active === false) return false;
           const st = String(n?.status || "").toUpperCase();
@@ -683,10 +1052,10 @@ export default function HomeScreen({ navigation }) {
         });
         setNews(active.slice(0, 5));
       } else {
+        console.warn("[HomeScreen] Erro ao carregar avisos →", newsRes.reason);
         setNews([]);
       }
       setNewsLoading(false);
-
     } else {
       setEvents([]);
       setNews([]);
@@ -700,11 +1069,8 @@ export default function HomeScreen({ navigation }) {
         setLoading(true);
         await loadHome();
       } catch (e) {
-        if (alive) {
-          setChurch(null);
-          setMyRole(null);
-          setError(e?.message || "Erro ao carregar.");
-        }
+        console.error("[HomeScreen] Erro no loadHome →", e?.message, e);
+        if (alive) { setChurch(null); setMyRole(null); setError(e?.message || "Erro ao carregar."); }
       } finally {
         if (alive) setLoading(false);
       }
@@ -712,21 +1078,50 @@ export default function HomeScreen({ navigation }) {
     return () => { alive = false; };
   }, [loadHome]);
 
-  const onRefresh = useCallback(async () => {
-    try {
-      setRefreshing(true);
-      await loadHome();
-    } catch (e) {
-      setError(e?.message || "Erro ao atualizar.");
-    } finally {
-      setRefreshing(false);
+  // Busca contagem de notificações não lidas — atualiza a cada 60s
+  useEffect(() => {
+    let alive = true;
+    async function fetchUnread() {
+      try {
+        const fbUser = getAuth().currentUser;
+        if (!fbUser) return;
+        const token = await getIdToken(fbUser, false);
+        const res   = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (alive) setUnreadCount(data?.count ?? 0);
+      } catch { /* silencioso */ }
     }
+    fetchUnread();
+    const id = setInterval(fetchUnread, 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    try { setRefreshing(true); await loadHome(); }
+    catch (e) {
+      console.error("[HomeScreen] Erro no refresh →", e?.message);
+      setError(e?.message || "Erro ao atualizar.");
+    }
+    finally { setRefreshing(false); }
   }, [loadHome]);
 
-  const userPhotoUrl  = resolveImageUrl(me,     "photoUrl", "avatarUrl", "imageUrl", "photo", "avatar");
-  const churchLogoUrl = resolveImageUrl(church, "logoUrl",  "photoUrl",  "imageUrl", "coverUrl", "photo", "avatar", "avatarUrl");
+  // 🖼️ IMG — resolve foto do usuário (me) e logo da igreja
+  const userPhotoUrl = resolveImageUrl(me, "photoUrl", "avatarUrl", "imageUrl", "photo", "avatar");
+  const churchLogoUrl = resolveImageUrl(church, "logoUrl", "photoUrl", "imageUrl", "coverUrl", "photo", "avatar", "avatarUrl");
 
-  // ─── Loading ───────────────────────────────────────────────────────────────
+  // 🔍 LOG — URLs resolvidas (útil para confirmar)
+  useEffect(() => {
+    if (!loading) {
+      console.log("[HomeScreen] URLs resolvidas →", {
+        userPhotoUrl,
+        churchLogoUrl,
+      });
+    }
+  }, [loading, userPhotoUrl, churchLogoUrl]);
+
   if (loading) {
     return (
       <View style={[s.root, { backgroundColor: tc.bg }]}>
@@ -741,7 +1136,6 @@ export default function HomeScreen({ navigation }) {
     );
   }
 
-  // ─── Sem igreja ────────────────────────────────────────────────────────────
   if (!church) {
     return (
       <View style={[s.root, { backgroundColor: tc.bg }]}>
@@ -774,7 +1168,6 @@ export default function HomeScreen({ navigation }) {
     );
   }
 
-  // ─── Main ──────────────────────────────────────────────────────────────────
   return (
     <View style={[s.root, { backgroundColor: tc.bg }]}>
       <StatusBar backgroundColor={NAVY} barStyle="light-content" />
@@ -786,18 +1179,25 @@ export default function HomeScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* ── HERO ──────────────────────────────────────────────────────── */}
+        {/* ── HERO ─────────────────────────────────────────────────────── */}
         <View style={s.hero}>
           <View style={s.blobOne} />
           <View style={s.blobTwo} />
 
           <View style={s.heroTopRow}>
             <View style={s.heroIdentity}>
+
+              {/* 🖼️ IMG — logo da igreja: imagem se disponível, senão Avatar.Icon */}
               {churchLogoUrl ? (
                 <Image source={{ uri: churchLogoUrl }} style={s.heroChurchLogo} resizeMode="cover" />
               ) : (
-                <Avatar.Icon size={54} icon="church" style={s.heroAvatarFallback} color="#FFFFFF" />
+                <Avatar.Icon
+                  size={54} icon="church"
+                  style={s.heroAvatarFallback}
+                  color="#FFFFFF"
+                />
               )}
+
               <View style={{ flex: 1 }}>
                 <Text style={s.heroGreet}>{greet}</Text>
                 <Text variant="titleLarge" style={s.heroName} numberOfLines={1}>
@@ -809,25 +1209,54 @@ export default function HomeScreen({ navigation }) {
               </View>
             </View>
 
-            <TouchableRipple
-              borderless
-              onPress={() => {
-                const parent = navigation.getParent?.();
-                if (parent) parent.navigate("MoreTab", { screen: "Profile" });
-                else navigation.navigate("Profile");
-              }}
-              style={s.heroProfileBtn}
-            >
-              {userPhotoUrl ? (
-                <Image source={{ uri: userPhotoUrl }} style={s.heroUserPhoto} resizeMode="cover" />
-              ) : (
-                <View style={s.heroProfileBtnInner}>
-                  <Icon source="account-circle-outline" size={20} color="#FFFFFF" />
+            {/* ── Sino de notificações + perfil do usuário ── */}
+            <View style={s.heroActions}>
+              {/* Sino com badge de não lidas */}
+              <TouchableRipple
+                borderless
+                onPress={() => {
+                  const parent = navigation.getParent?.();
+                  (parent || navigation).navigate("NotificationsTab");
+                }}
+                style={s.heroBellBtn}
+              >
+                <View style={s.heroBellInner}>
+                  <Icon source="bell-outline" size={20} color="#FFFFFF" />
+                  {unreadCount > 0 && (
+                    <View style={s.heroBellBadge}>
+                      <Text style={s.heroBellBadgeText}>
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </TouchableRipple>
+              </TouchableRipple>
+
+              {/* Foto / ícone de perfil */}
+              <TouchableRipple
+                borderless
+                onPress={() => {
+                  const parent = navigation.getParent?.();
+                  if (parent) {
+                    parent.navigate("MoreTab", { screen: "Profile" });
+                  } else {
+                    navigation.navigate("Profile");
+                  }
+                }}
+                style={s.heroProfileBtn}
+              >
+                {userPhotoUrl ? (
+                  <Image source={{ uri: userPhotoUrl }} style={s.heroUserPhoto} resizeMode="cover" />
+                ) : (
+                  <View style={s.heroProfileBtnInner}>
+                    <Icon source="account-circle-outline" size={20} color="#FFFFFF" />
+                  </View>
+                )}
+              </TouchableRipple>
+            </View>
           </View>
 
+          {/* About da igreja — exibe abaixo do hero quando disponível */}
           {!!church?.about && (
             <View style={s.heroAboutWrap}>
               <Icon source="information-outline" size={13} color="rgba(255,255,255,0.55)" />
@@ -835,6 +1264,7 @@ export default function HomeScreen({ navigation }) {
             </View>
           )}
 
+          {/* Botão ver perfil da igreja */}
           <TouchableRipple
             borderless
             onPress={() => navigation.navigate("ChurchProfile")}
@@ -848,25 +1278,19 @@ export default function HomeScreen({ navigation }) {
           </TouchableRipple>
         </View>
 
-        {/* ── PRÓXIMOS EVENTOS ──────────────────────────────────────────── */}
-        <View style={s.section}>
-          <SectionHeader title="Próximos eventos" subtitle="Toque para ver detalhes" subtitleColor={tc.muted} />
-        </View>
+        {/* ── PRÓXIMOS EVENTOS — oculto quando vazio ─────────────────────── */}
+        {(eventsLoading || events.length > 0) && (
+          <View style={s.section}>
+            <SectionHeader title="Próximos eventos" subtitle="Toque para ver detalhes" subtitleColor={tc.muted} />
+          </View>
+        )}
 
         {eventsLoading ? (
           <View style={s.carouselLoading}>
             <ActivityIndicator color={tc.primary} />
             <Text style={[s.loadingText, { color: tc.muted }]}>Carregando eventos...</Text>
           </View>
-        ) : events.length === 0 ? (
-          <View style={s.emptyEventsPad}>
-            <EmptyEvents
-              surfaceColor={tc.surface} outlineColor={tc.outline}
-              textColor={tc.text}      mutedColor={tc.muted}
-              iconBg={tc.iconBg}       iconColor={tc.iconColor}
-            />
-          </View>
-        ) : (
+        ) : events.length === 0 ? null : (
           <FlatList
             data={events}
             keyExtractor={(item, idx) => String(item?.id ?? idx)}
@@ -879,10 +1303,11 @@ export default function HomeScreen({ navigation }) {
             renderItem={({ item }) => (
               <EventCard
                 item={item}
-                surfaceColor={tc.surface}  outlineColor={tc.outline}
-                textColor={tc.text}        mutedColor={tc.muted}
+                surfaceColor={tc.surface} outlineColor={tc.outline}
+                textColor={tc.text} mutedColor={tc.muted}
                 primaryContainerColor={tc.iconBg}
                 onPress={() => {
+                  // Navega para EventsPreviewScreen no EventsStack
                   const parent = navigation.getParent?.();
                   if (parent) {
                     parent.navigate("Events", {
@@ -896,6 +1321,25 @@ export default function HomeScreen({ navigation }) {
               />
             )}
           />
+        )}
+
+        {/* ── AÇÕES RÁPIDAS — oculto quando membros <= 1 ────────────────── */}
+        {(membersCount === null || membersCount > 1) && (
+          <View style={s.section}>
+            <SectionHeader title="Ações rápidas" subtitle="O que você mais usa no dia a dia" subtitleColor={tc.muted} />
+            <View style={s.qaGrid}>
+              {quickActions.map((qa) => (
+                <QuickActionItem
+                  key={qa.label}
+                  icon={qa.icon} label={qa.label} color={qa.color} bg={qa.bg}
+                  dashed={!qa.screen}
+                  surfaceColor={tc.surface} bgColor={tc.bg}
+                  outlineColor={tc.outline} textColor={tc.text}
+                  onPress={qa.route ? () => handleQuickActionPress(qa) : undefined}
+                />
+              ))}
+            </View>
+          </View>
         )}
 
         {/* ── AVISOS ────────────────────────────────────────────────────── */}
@@ -914,7 +1358,7 @@ export default function HomeScreen({ navigation }) {
                     key={String(item?.id ?? idx)}
                     item={item} isLast={idx === news.length - 1}
                     surfaceColor={tc.surface} outlineColor={tc.outline}
-                    textColor={tc.text}       mutedColor={tc.muted}
+                    textColor={tc.text} mutedColor={tc.muted}
                     onPress={() => setSelectedNews(item)}
                   />
                 ))}
@@ -923,22 +1367,14 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
 
-        {/* ── AÇÕES RÁPIDAS ─────────────────────────────────────────────── */}
-        <View style={s.section}>
-          <SectionHeader title="Ações rápidas" subtitle="O que você mais usa no dia a dia" subtitleColor={tc.muted} />
-          <View style={s.qaGrid}>
-            {QUICK_ACTIONS.map((qa) => (
-              <QuickActionItem
-                key={qa.label}
-                icon={qa.icon} label={qa.label} color={qa.color} bg={qa.bg}
-                dashed={!qa.screen}
-                surfaceColor={tc.surface} bgColor={tc.bg}
-                outlineColor={tc.outline} textColor={tc.text}
-                onPress={qa.route ? () => handleQuickActionPress(qa) : undefined}
-              />
-            ))}
-          </View>
-        </View>
+        {/* ── ONBOARDING — exibido quando sem eventos e sem avisos ─── */}
+        {!eventsLoading && !newsLoading && events.length === 0 && news.length === 0 && (
+          <OnboardingGuide
+            tc={tc}
+            navigation={navigation}
+            isAdmin={isAdmin}
+          />
+        )}
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -949,10 +1385,10 @@ export default function HomeScreen({ navigation }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  root:      { flex: 1 },
+  root: { flex: 1 },
   container: { paddingBottom: 32 },
-  section:   { paddingHorizontal: 16 },
-  center:    { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  section: { paddingHorizontal: 16 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
 
   loadingIcon: { width: 58, height: 58, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   loadingText: { marginTop: 10, fontSize: 14 },
@@ -966,124 +1402,221 @@ const s = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: NAVY,
   },
-  blobOne: { position: "absolute", width: 220, height: 220, borderRadius: 999, top: -60,  right: -50, backgroundColor: "rgba(255,255,255,0.07)" },
+  blobOne: { position: "absolute", width: 220, height: 220, borderRadius: 999, top: -60, right: -50, backgroundColor: "rgba(255,255,255,0.07)" },
   blobTwo: { position: "absolute", width: 160, height: 160, borderRadius: 999, bottom: -90, left: -40, backgroundColor: "rgba(255,255,255,0.05)" },
+  heroTopRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12, zIndex: 2 },
+  heroIdentity: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
 
-  heroTopRow:    { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12, zIndex: 2 },
-  heroIdentity:  { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
-  heroChurchLogo:{ width: 54, height: 54, borderRadius: 18, borderWidth: 2, borderColor: "rgba(255,255,255,0.25)" },
+  // 🖼️ IMG — logo da igreja (mesmo tamanho do Avatar)
+  heroChurchLogo: {
+    width: 54, height: 54,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
   heroAvatarFallback: { backgroundColor: "rgba(255,255,255,0.16)", borderRadius: 18, elevation: 0 },
-  heroGreet:     { color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: "600" },
-  heroName:      { color: "#FFFFFF", fontWeight: "900", letterSpacing: -0.6, marginTop: 1 },
-  heroMeta:      { color: "rgba(255,255,255,0.62)", marginTop: 3, fontSize: 12, fontWeight: "600" },
 
-  heroProfileBtn:      { width: 40, height: 40, borderRadius: 13, overflow: "hidden", zIndex: 2, backgroundColor: "rgba(255,255,255,0.14)" },
+  heroGreet: { color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: "600" },
+  heroName: { color: "#FFFFFF", fontWeight: "900", letterSpacing: -0.6, marginTop: 1 },
+  heroMeta: { color: "rgba(255,255,255,0.62)", marginTop: 3, fontSize: 12, fontWeight: "600" },
+
+  heroActions:      { flexDirection: "row", alignItems: "center", gap: 8, zIndex: 2 },
+  heroBellBtn:      { width: 40, height: 40, borderRadius: 13, overflow: "visible", zIndex: 2, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  heroBellInner:    { width: 40, height: 40, alignItems: "center", justifyContent: "center", position: "relative" },
+  heroBellBadge:    { position: "absolute", top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 9, backgroundColor: "#E84D4D", alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderWidth: 1.5, borderColor: NAVY },
+  heroBellBadgeText:{ fontSize: 9, fontWeight: "900", color: "#fff", lineHeight: 12 },
+  heroProfileBtn: { width: 40, height: 40, borderRadius: 13, overflow: "hidden", zIndex: 2, backgroundColor: "rgba(255,255,255,0.14)" },
   heroProfileBtnInner: { flex: 1, alignItems: "center", justifyContent: "center" },
-  heroUserPhoto:       { width: 40, height: 40, borderRadius: 13 },
 
-  heroChurchProfileBtn:      { marginTop: 12, alignSelf: "flex-start", borderRadius: 999, overflow: "hidden", zIndex: 2 },
-  heroChurchProfileBtnInner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: "rgba(255,255,255,0.25)", backgroundColor: "rgba(255,255,255,0.12)" },
-  heroChurchProfileBtnText:  { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.9)" },
+  // 🖼️ IMG — foto do usuário no botão de perfil
+  heroUserPhoto: { width: 40, height: 40, borderRadius: 13 },
 
-  heroAboutWrap: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.12)", zIndex: 2 },
-  heroAbout:     { flex: 1, color: "rgba(255,255,255,0.65)", fontSize: 12, lineHeight: 17, fontStyle: "italic" },
+  // Botão "Ver perfil da igreja" no hero
+  heroChurchProfileBtn: {
+    marginTop: 12,
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    overflow: "hidden",
+    zIndex: 2,
+  },
+  heroChurchProfileBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  heroChurchProfileBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.9)",
+  },
+
+  heroPills: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16, zIndex: 2 },
+  pill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.15)" },
+  pillDot: { width: 6, height: 6, borderRadius: 999 },
+  pillText: { color: "#FFFFFF", fontSize: 11.5, fontWeight: "700" },
+
+  // About da igreja no hero
+  heroAboutWrap: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    zIndex: 2,
+  },
+  heroAbout: {
+    flex: 1,
+    color: "rgba(255,255,255,0.65)",
+    fontSize: 12,
+    lineHeight: 17,
+    fontStyle: "italic",
+  },
 
   // ── Section ────────────────────────────────────────────────────────────────
   sectionHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 12, marginTop: 18 },
-  sectionTitle:  { fontWeight: "900", letterSpacing: -0.3, color: NAVY },
-  sectionSub:    { marginTop: 2, fontSize: 12, lineHeight: 17 },
+  sectionTitle: { fontWeight: "900", letterSpacing: -0.3, color: NAVY },
+  sectionSub: { marginTop: 2, fontSize: 12, lineHeight: 17 },
 
   // ── Eventos carousel ───────────────────────────────────────────────────────
-  carouselList:    { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 2 },
+  carouselList: { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 2 },
   carouselLoading: { height: 140, alignItems: "center", justifyContent: "center", gap: 8, marginHorizontal: 16 },
-  emptyEventsPad:  { paddingHorizontal: 16, marginBottom: 8 },
-  emptyEvents:     { borderRadius: 20, borderWidth: 1, padding: 22, alignItems: "center", gap: 8 },
+  emptyEventsPad: { paddingHorizontal: 16, marginBottom: 8 },
+  emptyEvents: { borderRadius: 20, borderWidth: 1, padding: 22, alignItems: "center", gap: 8 },
   emptyEventsIcon: { width: 50, height: 50, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  emptyEventsTitle:{ fontWeight: "900", textAlign: "center", marginTop: 8 },
+  emptyEventsTitle: { fontWeight: "900", textAlign: "center", marginTop: 8 },
   emptyEventsText: { textAlign: "center", fontSize: 13, lineHeight: 18 },
 
-  eventCard:         { width: CARD_W, borderRadius: 20, borderWidth: 1, overflow: "hidden" },
-  eventCoverWrap:    { width: "100%", height: 110, position: "relative" },
-  eventCoverImage:   { width: "100%", height: 110 },
+  eventCard: { width: CARD_W, borderRadius: 20, borderWidth: 1, overflow: "hidden" },
+
+  // 🖼️ IMG — capa real
+  eventCoverWrap: { width: "100%", height: 110, position: "relative" },
+  eventCoverImage: { width: "100%", height: 110 },
   eventCoverOverlay: { position: "absolute", bottom: 0, left: 0, right: 0, height: 50 },
-  eventCoverGradient:{ width: "100%", height: 110, alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" },
-  eventGradientBlob: { position: "absolute", width: 100, height: 100, borderRadius: 999, top: -30, right: -20, backgroundColor: "rgba(255,255,255,0.12)" },
-  eventGradientIconWrap: { width: 52, height: 52, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
-  eventDateBadgeOnImage: { position: "absolute", bottom: 8, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.38)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  eventDateTextOnImage:  { fontSize: 10, fontWeight: "800", color: "#fff" },
-  eventStrip:    { height: 4, width: "100%" },
-  eventDateBadge:{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, alignSelf: "flex-start" },
+
+  // 🎨 Fallback gradiente
+  eventCoverGradient: {
+    width: "100%", height: 110,
+    alignItems: "center", justifyContent: "center",
+    position: "relative", overflow: "hidden",
+  },
+  eventGradientBlob: {
+    position: "absolute", width: 100, height: 100, borderRadius: 999,
+    top: -30, right: -20, backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  eventGradientIconWrap: {
+    width: 52, height: 52, borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center", justifyContent: "center",
+  },
+
+  // Badge de data sobre imagem/gradiente
+  eventDateBadgeOnImage: {
+    position: "absolute", bottom: 8, left: 10,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(0,0,0,0.38)",
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 999,
+  },
+  eventDateTextOnImage: { fontSize: 10, fontWeight: "800", color: "#fff" },
+
+  // Mantidos para compatibilidade
+  eventStrip: { height: 4, width: "100%" },
+  eventDateBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, alignSelf: "flex-start" },
   eventDateText: { fontSize: 11, fontWeight: "800" },
-  eventBody:     { padding: 13, gap: 6 },
-  eventTitle:    { fontWeight: "900", letterSpacing: -0.3, lineHeight: 20 },
-  eventMeta:     { flexDirection: "row", alignItems: "center", gap: 4 },
+
+  eventBody: { padding: 13, gap: 6 },
+  eventTitle: { fontWeight: "900", letterSpacing: -0.3, lineHeight: 20 },
+  eventMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
   eventMetaText: { fontSize: 11.5, flex: 1 },
-  eventFooter:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-  eventChip:     { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
-  eventDot:      { width: 6, height: 6, borderRadius: 999 },
-  eventChipText: { fontSize: 11, fontWeight: "700" },
-  eventPast:     { fontSize: 11, fontStyle: "italic" },
+  eventFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  eventChip:          { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  eventDot:           { width: 6, height: 6, borderRadius: 999 },
+  eventChipText:      { fontSize: 11, fontWeight: "700" },
+  eventPast:          { fontSize: 11, fontStyle: "italic" },
+  // ── Today highlight ──────────────────────────────────────────────────────
+  eventTodayChip:     { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  eventTodayChipText: { fontSize: 11, fontWeight: "900", color: "#fff", letterSpacing: 0.2 },
+  eventTodayBanner:   { position: "absolute", top: 8, left: 8, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  eventTodayBannerText: { fontSize: 10, fontWeight: "900", color: "#fff", letterSpacing: 0.6 },
 
   // ── News ───────────────────────────────────────────────────────────────────
-  newsCard:     { borderRadius: 20, borderWidth: 1, overflow: "hidden", marginBottom: 4 },
-  newsLoading:  { height: 80, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  newsRow:      { paddingVertical: 0 },
+  newsCard: { borderRadius: 20, borderWidth: 1, overflow: "hidden", marginBottom: 4 },
+  newsLoading: { height: 80, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  newsRow: { paddingVertical: 0 },
   newsRowInner: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 13, paddingRight: 14 },
-  newsBar:      { width: 3, alignSelf: "stretch", borderRadius: 999, marginLeft: 0, marginVertical: 8 },
+  newsBar: { width: 3, alignSelf: "stretch", borderRadius: 999, marginLeft: 0, marginVertical: 8 },
   newsIconWrap: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  newsContent:  { flex: 1, gap: 3 },
-  newsTopRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  newsBadge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999 },
-  newsBadgeText:{ fontSize: 10, fontWeight: "800", letterSpacing: 0.2 },
-  newsDate:     { fontSize: 10.5, fontWeight: "600" },
-  newsTitle:    { fontWeight: "800", letterSpacing: -0.2, fontSize: 13 },
-  newsBody:     { fontSize: 12, lineHeight: 17 },
+  newsContent: { flex: 1, gap: 3 },
+  newsTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  newsBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999 },
+  newsBadgeText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.2 },
+  newsDate: { fontSize: 10.5, fontWeight: "600" },
+  newsTitle: { fontWeight: "800", letterSpacing: -0.2, fontSize: 13 },
+  newsBody: { fontSize: 12, lineHeight: 17 },
 
   // ── Quick Actions ──────────────────────────────────────────────────────────
-  qaGrid:   { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 22 },
-  qaItem:   { width: (SCREEN_W - 32 - 30) / 4, borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: "transparent" },
-  qaInner:  { paddingVertical: 12, paddingHorizontal: 6, alignItems: "center", gap: 7 },
-  qaIconWrap:{ width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  qaLabel:  { fontSize: 10.5, fontWeight: "800", textAlign: "center", letterSpacing: -0.1 },
+  qaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 22 },
+  qaItem: { width: (SCREEN_W - 32 - 30) / 4, borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: "transparent" },
+  qaInner: { paddingVertical: 12, paddingHorizontal: 6, alignItems: "center", gap: 7 },
+  qaIconWrap: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  qaLabel: { fontSize: 10.5, fontWeight: "800", textAlign: "center", letterSpacing: -0.1 },
 
   // ── Empty / Error states ───────────────────────────────────────────────────
-  emptyWrapper:      { flex: 1, padding: 16, justifyContent: "center" },
-  emptyCard:         { borderWidth: 1, borderRadius: 28, padding: 22, alignItems: "center" },
-  emptyCardIcon:     { width: 66, height: 66, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 16 },
-  emptyCardTitle:    { fontWeight: "900", textAlign: "center", letterSpacing: -0.5 },
-  emptyCardDesc:     { marginTop: 8, textAlign: "center", lineHeight: 20 },
-  emptyCardBtn:      { marginTop: 18, borderRadius: 16 },
-  emptyCardBtnContent:{ height: 46, paddingHorizontal: 8 },
-  errorBox:  { marginTop: 14, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "flex-start", gap: 8, alignSelf: "stretch" },
+  emptyWrapper: { flex: 1, padding: 16, justifyContent: "center" },
+  emptyCard: { borderWidth: 1, borderRadius: 28, padding: 22, alignItems: "center" },
+  emptyCardIcon: { width: 66, height: 66, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  emptyCardTitle: { fontWeight: "900", textAlign: "center", letterSpacing: -0.5 },
+  emptyCardDesc: { marginTop: 8, textAlign: "center", lineHeight: 20 },
+  emptyCardBtn: { marginTop: 18, borderRadius: 16 },
+  emptyCardBtnContent: { height: 46, paddingHorizontal: 8 },
+  errorBox: { marginTop: 14, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "flex-start", gap: 8, alignSelf: "stretch" },
   errorText: { flex: 1, fontSize: 13, lineHeight: 18 },
 
   // ── Modal ──────────────────────────────────────────────────────────────────
-  modalContainer:    { justifyContent: "flex-end", margin: 0, flex: 1 },
-  modalSheet:        { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "88%", overflow: "hidden" },
-  modalHandle:       { width: 44, height: 5, borderRadius: 999, backgroundColor: "#E0E0E0", alignSelf: "center", marginTop: 12, marginBottom: 4 },
-  modalStrip:        { height: 4, width: "100%" },
-  modalCoverWrap:    { width: "100%", height: 160, position: "relative" },
-  modalCoverImage:   { width: "100%", height: 160 },
+  modalContainer: { justifyContent: "flex-end", margin: 0, flex: 1 },
+  modalSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "88%", overflow: "hidden" },
+  modalHandle: { width: 44, height: 5, borderRadius: 999, backgroundColor: "#E0E0E0", alignSelf: "center", marginTop: 12, marginBottom: 4 },
+  modalStrip: { height: 4, width: "100%" },
+
+  // 🖼️ IMG — imagem de capa no modal de evento
+  modalCoverWrap: { width: "100%", height: 160, position: "relative" },
+  modalCoverImage: { width: "100%", height: 160 },
   modalCoverOverlay: { position: "absolute", bottom: 0, left: 0, right: 0, height: 70 },
-  modalCoverGradient:{ width: "100%", height: 120, alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" },
-  modalGradientBlob: { position: "absolute", width: 140, height: 140, borderRadius: 999, top: -50, right: -30, backgroundColor: "rgba(255,255,255,0.1)" },
-  modalScroll:       { padding: 20, paddingBottom: 8, gap: 14 },
-  modalTopRow:       { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 },
-  modalBadge:        { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
-  modalBadgeText:    { fontSize: 12, fontWeight: "800" },
-  modalDot:          { width: 6, height: 6, borderRadius: 999 },
-  modalBadgesRow:    { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  modalTitle:        { fontSize: 22, fontWeight: "900", letterSpacing: -0.5, lineHeight: 28 },
-  modalAgo:          { fontSize: 12, fontWeight: "600" },
-  modalAuthorRow:    { flexDirection: "row", alignItems: "center", gap: 6 },
-  modalAuthorText:   { fontSize: 13 },
-  modalBody:         { fontSize: 15, lineHeight: 24 },
-  modalDivider:      { height: 1 },
-  modalInfoList:     { gap: 12, paddingBottom: 4 },
-  modalInfoRow:      { flexDirection: "row", alignItems: "center", gap: 12 },
-  modalInfoIcon:     { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  modalInfoLabel:    { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 1 },
-  modalInfoValue:    { fontSize: 14, fontWeight: "600" },
-  modalFooter:       { padding: 16, borderTopWidth: StyleSheet.hairlineWidth },
-  modalBtn:          { borderRadius: 16 },
+  modalCoverGradient: {
+    width: "100%", height: 120,
+    alignItems: "center", justifyContent: "center",
+    overflow: "hidden", position: "relative",
+  },
+  modalGradientBlob: {
+    position: "absolute", width: 140, height: 140, borderRadius: 999,
+    top: -50, right: -30, backgroundColor: "rgba(255,255,255,0.1)",
+  },
+
+  modalScroll: { padding: 20, paddingBottom: 8, gap: 14 },
+  modalTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 },
+  modalBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  modalBadgeText: { fontSize: 12, fontWeight: "800" },
+  modalDot: { width: 6, height: 6, borderRadius: 999 },
+  modalBadgesRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  modalTitle: { fontSize: 22, fontWeight: "900", letterSpacing: -0.5, lineHeight: 28 },
+  modalAgo: { fontSize: 12, fontWeight: "600" },
+  modalAuthorRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  modalAuthorText: { fontSize: 13 },
+  modalBody: { fontSize: 15, lineHeight: 24 },
+  modalDivider: { height: 1 },
+  modalInfoList: { gap: 12, paddingBottom: 4 },
+  modalInfoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  modalInfoIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  modalInfoLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 1 },
+  modalInfoValue: { fontSize: 14, fontWeight: "600" },
+  modalFooter: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth },
+  modalBtn: { borderRadius: 16 },
 });

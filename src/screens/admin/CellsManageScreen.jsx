@@ -22,17 +22,24 @@ import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 
 // ─── Design System (conforme manual) ────────────────────────────────────────
-const NAVY       = "#1A2366";
-const BRAND      = "#4158D0";
+const NAVY        = "#1A2366";
+const BRAND       = "#4158D0";
 const BRAND_LIGHT = "#EEF0FA";
-const BG         = "#F5F6FA";
-const SURFACE    = "#FFFFFF";
-const BORDER     = "#E4E6F0";
-const MUTED      = "#9198B5";
-const SUCCESS    = "#2DBF8A";
-const SUCCESS_LIGHT = "#E8F9F3";
-const DANGER     = "#E84D4D";
-const DANGER_LIGHT = "#FEECEC";
+const BG          = "#F5F6FA";
+const SURFACE     = "#FFFFFF";
+const BORDER      = "#E4E6F0";
+const MUTED       = "#9198B5";
+const SUCCESS     = "#2DBF8A";
+const SUCCESS_LIGHT  = "#E8F9F3";
+const DANGER      = "#E84D4D";
+const DANGER_LIGHT   = "#FEECEC";
+
+// ─── Permissão de edição ──────────────────────────────────────────────────────
+// Apenas OWNER e ADMIN podem criar/editar células
+function canEditCells(role) {
+  const r = String(role || "").toUpperCase();
+  return r === "OWNER" || r === "ADMIN";
+}
 
 // ─── Rotas ───────────────────────────────────────────────────────────────────
 const ROUTES = {
@@ -86,15 +93,15 @@ function normalizeCell(raw) {
     raw?._count?.participants ?? raw?.members?.length ?? 0;
 
   return {
-    id:          raw?.id ?? String(Math.random()),
-    name:        raw?.name || raw?.title || "Célula",
-    neighborhood: raw?.neighborhood || raw?.bairro || raw?.region || null,
-    address:     raw?.address || raw?.endereco || null,
+    id:            raw?.id ?? String(Math.random()),
+    name:          raw?.name || raw?.title || "Célula",
+    neighborhood:  raw?.neighborhood || raw?.bairro || raw?.region || null,
+    address:       raw?.address || raw?.endereco || null,
     leaderName,
     membersCount,
-    meetingDay:  raw?.meetingDay || raw?.day || null,
-    meetingTime: raw?.meetingTime || raw?.time || null,
-    isActive:    raw?.isActive ?? raw?.active ?? true,
+    meetingDay:    raw?.meetingDay || raw?.day || null,
+    meetingTime:   raw?.meetingTime || raw?.time || null,
+    isActive:      raw?.isActive ?? raw?.active ?? true,
     templateColor: raw?.templateColor || null,
   };
 }
@@ -107,7 +114,6 @@ function formatMeeting(day, time) {
 
 // ─── Componentes auxiliares ───────────────────────────────────────────────────
 
-// Pill/badge (borderRadius 999, padrão do manual)
 function Pill({ icon, label, bg, color }) {
   return (
     <View style={[styles.pill, { backgroundColor: bg }]}>
@@ -121,11 +127,10 @@ function Pill({ icon, label, bg, color }) {
   );
 }
 
-// Card de célula
 function CellCard({ item, onPress }) {
-  const accent = item.templateColor || BRAND;
+  const accent      = item.templateColor || BRAND;
   const accentLight = accent + "18";
-  const meeting = formatMeeting(item.meetingDay, item.meetingTime);
+  const meeting     = formatMeeting(item.meetingDay, item.meetingTime);
 
   return (
     <TouchableRipple onPress={onPress} borderless style={styles.cellCard}>
@@ -136,7 +141,6 @@ function CellCard({ item, onPress }) {
         <View style={styles.cellBody}>
           {/* Cabeçalho do card */}
           <View style={styles.cellHeader}>
-            {/* Ícone do tipo */}
             <View style={[styles.cellIcon, { backgroundColor: accentLight }]}>
               <MaterialCommunityIcons
                 name={item.isActive ? "home-group" : "home-off"}
@@ -156,44 +160,30 @@ function CellCard({ item, onPress }) {
               )}
             </View>
 
-            {/* Seta de navegação */}
             <MaterialCommunityIcons name="chevron-right" size={20} color={MUTED} />
           </View>
 
           <Divider style={{ backgroundColor: BORDER, marginVertical: 10 }} />
 
-          {/* Info rows: reunião, líder, membros */}
+          {/* Pills de info */}
           <View style={styles.metaRow}>
             {!!meeting && (
-              <Pill
-                icon="calendar-clock"
-                label={meeting}
-                bg={BRAND_LIGHT}
-                color={BRAND}
-              />
+              <Pill icon="calendar-clock" label={meeting} bg={BRAND_LIGHT} color={BRAND} />
             )}
-
             <Pill
               icon="account"
-              label={item.leaderName ? item.leaderName : "Sem líder"}
+              label={item.leaderName || "Sem líder"}
               bg={BRAND_LIGHT}
               color={NAVY}
             />
-
             <Pill
               icon="account-multiple"
               label={`${item.membersCount} membros`}
               bg={BRAND_LIGHT}
               color={NAVY}
             />
-
             {!item.isActive && (
-              <Pill
-                icon="pause-circle"
-                label="Inativa"
-                bg={DANGER_LIGHT}
-                color={DANGER}
-              />
+              <Pill icon="pause-circle" label="Inativa" bg={DANGER_LIGHT} color={DANGER} />
             )}
           </View>
         </View>
@@ -204,8 +194,12 @@ function CellCard({ item, onPress }) {
 
 // ─── Tela ─────────────────────────────────────────────────────────────────────
 export default function CellsManageScreen({ navigation }) {
-  const authCtx = useAuth();
+  const authCtx   = useAuth();
   const isFocused = useIsFocused();
+
+  // Role do usuário para controle de permissões
+  const myRole = authCtx?.myRole || authCtx?.me?.role || authCtx?.role || null;
+  const canEdit = canEditCells(myRole);
 
   const churchId =
     authCtx?.activeChurch?.id ||
@@ -215,13 +209,12 @@ export default function CellsManageScreen({ navigation }) {
     authCtx?.activeChurchId ||
     null;
 
-  const [query, setQuery]       = useState("");
-  const [cells, setCells]       = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [query,      setQuery]      = useState("");
+  const [cells,      setCells]      = useState([]);
+  const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError]       = useState("");
+  const [error,      setError]      = useState("");
 
-  // tc centralizado (padrão do manual)
   const tc = useMemo(() => ({
     surface: SURFACE, bg: BG, outline: BORDER, text: NAVY, muted: MUTED, primary: BRAND,
   }), []);
@@ -268,7 +261,7 @@ export default function CellsManageScreen({ navigation }) {
     );
   }, [cells, query]);
 
-  const totalActive   = cells.filter((c) => c.isActive).length;
+  const totalActive   = cells.filter((c) =>  c.isActive).length;
   const totalInactive = cells.filter((c) => !c.isActive).length;
 
   // ── Header da lista ────────────────────────────────────────────────────────
@@ -276,7 +269,6 @@ export default function CellsManageScreen({ navigation }) {
     <View style={{ gap: 12 }}>
       {/* Hero card (fundo NAVY conforme manual) */}
       <Surface elevation={0} style={styles.heroCard}>
-        {/* Blobs decorativos */}
         <View style={[styles.blob, { width: 180, height: 180, top: -60, right: -50 }]} />
         <View style={[styles.blob, { width: 120, height: 120, bottom: -50, left: -30 }]} />
 
@@ -293,7 +285,6 @@ export default function CellsManageScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Pills de estatísticas */}
         <View style={styles.heroPills}>
           <View style={styles.heroPill}>
             <View style={[styles.pillDot, { backgroundColor: "#7EFFD4" }]} />
@@ -314,23 +305,25 @@ export default function CellsManageScreen({ navigation }) {
         </View>
       </Surface>
 
-      {/* Ações rápidas */}
+      {/* Ações rápidas — botão "Nova célula" só para OWNER/ADMIN */}
       <View style={{ flexDirection: "row", gap: 10 }}>
-        <Button
-          mode="contained"
-          icon="plus"
-          onPress={() => navigation.navigate(ROUTES.create)}
-          style={[styles.btnContained, { flex: 1 }]}
-          buttonColor={BRAND}
-          textColor="#fff"
-        >
-          Nova célula
-        </Button>
+        {canEdit && (
+          <Button
+            mode="contained"
+            icon="plus"
+            onPress={() => navigation.navigate(ROUTES.create)}
+            style={[styles.btnContained, { flex: 1 }]}
+            buttonColor={BRAND}
+            textColor="#fff"
+          >
+            Nova célula
+          </Button>
+        )}
         <Button
           mode="outlined"
           icon="refresh"
           onPress={onRefresh}
-          style={[styles.btnOutline, { flex: 1 }]}
+          style={[styles.btnOutline, { flex: canEdit ? 1 : undefined }]}
           textColor={BRAND}
         >
           Atualizar
@@ -391,9 +384,12 @@ export default function CellsManageScreen({ navigation }) {
       <Text style={styles.mutedText}>
         {query
           ? "Tente buscar por outro nome, bairro ou líder."
-          : "Crie a primeira célula para começar a organizar líderes, membros e reuniões."}
+          : canEdit
+            ? "Crie a primeira célula para começar a organizar líderes, membros e reuniões."
+            : "Nenhuma célula cadastrada ainda."}
       </Text>
-      {!query && (
+      {/* Botão criar só para quem tem permissão */}
+      {!query && canEdit && (
         <Button
           mode="contained"
           icon="plus"
@@ -450,9 +446,8 @@ export default function CellsManageScreen({ navigation }) {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+  container:   { flex: 1, backgroundColor: BG },
   listContent: { padding: 16, paddingBottom: 32, gap: 12 },
-
   loadingWrap: { flex: 1, backgroundColor: BG, alignItems: "center", justifyContent: "center" },
 
   // ── Hero (fundo NAVY fixo, conforme manual) ────────────────────────────────
@@ -469,8 +464,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.07)",
   },
-  heroTop: { flexDirection: "row", alignItems: "center", gap: 12, zIndex: 2 },
-  heroAvatar: {
+  heroTop:   { flexDirection: "row", alignItems: "center", gap: 12, zIndex: 2 },
+  heroAvatar:{
     width: 48, height: 48,
     borderRadius: 16,
     alignItems: "center", justifyContent: "center",
@@ -479,18 +474,18 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 22, fontWeight: "900", color: "#fff", letterSpacing: -0.6 },
   heroMeta:  { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 },
   heroPills: { flexDirection: "row", gap: 8, marginTop: 14, zIndex: 2 },
-  heroPill: {
+  heroPill:  {
     flexDirection: "row", alignItems: "center", gap: 6,
     backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 999,
     paddingHorizontal: 11, paddingVertical: 5,
   },
-  pillDot: { width: 6, height: 6, borderRadius: 999 },
-  heroPillText: { fontSize: 11, fontWeight: "700", color: "#fff" },
+  pillDot:     { width: 6, height: 6, borderRadius: 999 },
+  heroPillText:{ fontSize: 11, fontWeight: "700", color: "#fff" },
 
   // ── Botões ─────────────────────────────────────────────────────────────────
-  btnContained: { borderRadius: 999 },
-  btnOutline:   { borderRadius: 999, borderColor: BORDER },
+  btnContained:{ borderRadius: 999 },
+  btnOutline:  { borderRadius: 999, borderColor: BORDER },
 
   // ── Busca ──────────────────────────────────────────────────────────────────
   searchBar: {
@@ -512,8 +507,8 @@ const styles = StyleSheet.create({
     borderColor: DANGER,
     padding: 14,
   },
-  errorTitle: { fontSize: 13, fontWeight: "900", color: NAVY },
-  retryBtn: {
+  errorTitle:{ fontSize: 13, fontWeight: "900", color: NAVY },
+  retryBtn:  {
     width: 36, height: 36,
     borderRadius: 999,
     backgroundColor: BRAND_LIGHT,
@@ -527,8 +522,8 @@ const styles = StyleSheet.create({
     marginTop: 6, marginBottom: 0,
     paddingHorizontal: 2,
   },
-  sectionTitle: { fontSize: 16, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
-  countBadge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
+  sectionTitle:   { fontSize: 16, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
+  countBadge:     { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
   countBadgeText: { fontSize: 12, fontWeight: "800" },
 
   // ── Card de célula ─────────────────────────────────────────────────────────
@@ -539,29 +534,29 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     overflow: "hidden",
     ...Platform.select({
-      ios: { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+      ios:     { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
       android: { elevation: 2 },
     }),
   },
-  cellStrip: { height: 4 },
-  cellBody:  { padding: 14, gap: 0 },
+  cellStrip:  { height: 4 },
+  cellBody:   { padding: 14, gap: 0 },
   cellHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
-  cellIcon: {
+  cellIcon:   {
     width: 44, height: 44,
     borderRadius: 14,
     alignItems: "center", justifyContent: "center",
   },
-  cellTitle:    { fontSize: 15, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
-  cellLocation: { fontSize: 12, color: MUTED, marginTop: 3 },
+  cellTitle:   { fontSize: 15, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
+  cellLocation:{ fontSize: 12, color: MUTED, marginTop: 3 },
 
   // ── Meta row (pills) ───────────────────────────────────────────────────────
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  pill: {
+  pill:    {
     flexDirection: "row", alignItems: "center",
     borderRadius: 999,
     paddingHorizontal: 9, paddingVertical: 4,
   },
-  pillText: { fontSize: 10, fontWeight: "800" },
+  pillText:{ fontSize: 10, fontWeight: "800" },
 
   // ── Empty state ────────────────────────────────────────────────────────────
   emptyCard: {
@@ -575,7 +570,7 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE,
     marginTop: 8,
   },
-  emptyTitle: { fontSize: 15, fontWeight: "900", color: NAVY, textAlign: "center" },
+  emptyTitle:{ fontSize: 15, fontWeight: "900", color: NAVY, textAlign: "center" },
 
   // ── Texto muted genérico ───────────────────────────────────────────────────
   mutedText: { fontSize: 13, color: MUTED, textAlign: "center", lineHeight: 20 },

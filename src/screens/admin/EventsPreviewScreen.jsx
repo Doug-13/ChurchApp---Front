@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Image, Platform, ScrollView, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -12,13 +12,15 @@ import {
 import { getAuth, getIdToken } from "@react-native-firebase/auth";
 import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
+import LinearGradient from "react-native-linear-gradient";
+
 
 // ─── Design tokens (alinhados ao Design Manual) ────────────────────────────
-const NAVY        = "#1A2366";
-const BRAND_BLUE  = "#4158D0";
+const NAVY = "#1A2366";
+const BRAND_BLUE = "#4158D0";
 const BRAND_LIGHT = "#EEF0FA";
-const SUCCESS     = "#2DBF8A";
-const SUCCESS_BG  = "#E8F9F3";
+const SUCCESS = "#2DBF8A";
+const SUCCESS_BG = "#E8F9F3";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,20 +80,20 @@ export default function EventsPreviewScreen({ route, navigation }) {
 
   const tc = useMemo(() => ({
     surface: theme.colors.surface,
-    bg:      theme.colors.background,
+    bg: theme.colors.background,
     outline: theme.colors.outlineVariant,
-    text:    theme.colors.onSurface,
-    muted:   theme.colors.onSurfaceVariant,
+    text: theme.colors.onSurface,
+    muted: theme.colors.onSurfaceVariant,
     primary: theme.colors.primary,
   }), [theme]);
 
   // ── Evento: aceita objeto completo ou só o id via params ─────────────────
   const paramEvent = route?.params?.event ?? {};
-  const eventId    = paramEvent?.id ?? route?.params?.id ?? null;
+  const eventId = paramEvent?.id ?? route?.params?.id ?? null;
 
-  const [event,   setEvent]   = useState(paramEvent?.title ? paramEvent : null);
+  const [event, setEvent] = useState(paramEvent?.title ? paramEvent : null);
   const [loading, setLoading] = useState(!paramEvent?.title);
-  const [error,   setError]   = useState(null);
+  const [error, setError] = useState(null);
 
   // ── Busca dados completos se só veio o id ─────────────────────────────────
   useEffect(() => {
@@ -154,25 +156,25 @@ export default function EventsPreviewScreen({ route, navigation }) {
   }, [userCanEdit, handleEdit, navigation]);
 
   // ── Dados derivados ───────────────────────────────────────────────────────
-  const title       = event?.title       || "Evento";
-  const dateLabel   = formatEventDate(event?.dateLabel || "");
-  const timeLabel   = event?.timeLabel   || "";
-  const location    = event?.location    || "";
+  const title = event?.title || "Evento";
+  const dateLabel = formatEventDate(event?.dateLabel || "");
+  const timeLabel = event?.timeLabel || "";
+  const location = event?.location || "";
   const description = event?.description || "";
   const coverImgUrl = event?.coverImageUrl || null;
-  const color       = event?.color        || null;
-  const blocks      = Array.isArray(event?.blocks)      ? event.blocks      : [];
-  const ministries  = Array.isArray(event?.ministries)  ? event.ministries  : [];
+  const color = event?.color || null;
+  const blocks = Array.isArray(event?.blocks) ? event.blocks : [];
+  const ministries = Array.isArray(event?.ministries) ? event.ministries : [];
   const assignments = Array.isArray(event?.assignments) ? event.assignments : [];
   const dateTimeLabel = [dateLabel, timeLabel].filter(Boolean).join(" • ");
 
-  const now       = Date.now();
-  const eventTs   = event?.dateLabel
+  const now = Date.now();
+  const eventTs = event?.dateLabel
     ? new Date(event.dateLabel + "T00:00:00").getTime()
     : null;
-  const isPast    = eventTs !== null && eventTs < now;
+  const isPast = eventTs !== null && eventTs < now;
   const statusColor = isPast ? "#9198B5" : SUCCESS;
-  const statusBg    = isPast ? "#F0F1F5" : SUCCESS_BG;
+  const statusBg = isPast ? "#F0F1F5" : SUCCESS_BG;
   const statusLabel = isPast ? "Realizado" : "Em breve";
 
   // Acento — cor do evento ou do 1º ministério ou brand
@@ -204,14 +206,25 @@ export default function EventsPreviewScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
         {/* ── Hero ── */}
+        {/* ── Hero ── */}
         <View style={[styles.hero, { backgroundColor: NAVY }]}>
-          <View style={[styles.blob, { width: 200, height: 200, top: -60, right: -50 }]} />
-          <View style={[styles.blob, { width: 130, height: 130, bottom: -70, left: -30, opacity: 0.05 }]} />
+          {coverImgUrl ? (
+            <>
+              <Image source={{ uri: coverImgUrl }} style={styles.heroCoverImage} resizeMode="cover" />
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.55)"]}
+                style={styles.heroCoverOverlay}
+              />
+            </>
+          ) : (
+            <>
+              <View style={[styles.blob, { width: 200, height: 200, top: -60, right: -50 }]} />
+              <View style={[styles.blob, { width: 130, height: 130, bottom: -70, left: -30, opacity: 0.05 }]} />
+              <View style={[styles.heroAccentStrip, { backgroundColor: accent }]} />
+            </>
+          )}
 
-          {/* Faixa de acento no topo — alinhado ao card da HomeScreen */}
-          <View style={[styles.heroAccentStrip, { backgroundColor: accent }]} />
-
-          <View style={styles.heroTop}>
+          <View style={[styles.heroTop, coverImgUrl ? styles.heroTopOverImage : null]}>
             <View style={[styles.heroIconWrap, { backgroundColor: `${accent}33` }]}>
               <Icon source={ministries[0]?.icon || "calendar-star-outline"} size={22} color="#fff" />
             </View>
@@ -221,10 +234,10 @@ export default function EventsPreviewScreen({ route, navigation }) {
             </View>
           </View>
 
-          <Text style={styles.heroTitle}>{title}</Text>
+          <Text style={[styles.heroTitle, coverImgUrl ? styles.heroTitleOverImage : null]}>{title}</Text>
 
           {!!dateTimeLabel && (
-            <View style={styles.heroPills}>
+            <View style={[styles.heroPills, coverImgUrl ? styles.heroPillsOverImage : null]}>
               <View style={styles.heroPill}>
                 <View style={[styles.heroPillDot, { backgroundColor: "#7EFFD4" }]} />
                 <Text style={styles.heroPillText}>{dateTimeLabel}</Text>
@@ -242,9 +255,9 @@ export default function EventsPreviewScreen({ route, navigation }) {
         {/* ── Detalhes ── */}
         <Surface elevation={0} style={[styles.card, { backgroundColor: tc.surface, borderColor: tc.outline }]}>
           <SectionHeader title="DETALHES" tc={tc} />
-          <InfoRow icon="calendar-outline"   label="Data"    value={dateLabel || "Não definida"} tc={tc} />
-          <InfoRow icon="clock-outline"      label="Horário" value={timeLabel}  tc={tc} />
-          <InfoRow icon="map-marker-outline" label="Local"   value={location}   color="#E85D75" bg="#FDECEF" tc={tc} />
+          <InfoRow icon="calendar-outline" label="Data" value={dateLabel || "Não definida"} tc={tc} />
+          <InfoRow icon="clock-outline" label="Horário" value={timeLabel} tc={tc} />
+          <InfoRow icon="map-marker-outline" label="Local" value={location} color="#E85D75" bg="#FDECEF" tc={tc} />
           {!!description && (
             <View style={styles.descWrap}>
               <Text style={[styles.infoLabel, { color: tc.muted }]}>Descrição</Text>
@@ -309,8 +322,8 @@ export default function EventsPreviewScreen({ route, navigation }) {
             <View style={{ gap: 8 }}>
               {assignments.map((a) => {
                 const confirmed = a.status === "CONFIRMED";
-                const aColor = confirmed ? SUCCESS  : "#F5A623";
-                const aBg    = confirmed ? SUCCESS_BG : "#FEF5E7";
+                const aColor = confirmed ? SUCCESS : "#F5A623";
+                const aBg = confirmed ? SUCCESS_BG : "#FEF5E7";
                 return (
                   <View key={a.id} style={[styles.personRow, { borderColor: tc.outline }]}>
                     <View style={[styles.personAvatar, { backgroundColor: aBg }]}>
@@ -358,8 +371,8 @@ export default function EventsPreviewScreen({ route, navigation }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root:      { flex: 1 },
-  center:    { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
+  root: { flex: 1 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
   loadingText: { fontSize: 14, marginTop: 8 },
 
   container: {
@@ -375,7 +388,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
     ...Platform.select({
-      ios:     { shadowOpacity: 0.10, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+      ios: { shadowOpacity: 0.10, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
       android: { elevation: 3 },
     }),
   },
@@ -417,7 +430,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
 
-  statusDot:  { width: 6, height: 6, borderRadius: 999 },
+  statusDot: { width: 6, height: 6, borderRadius: 999 },
   statusText: { fontSize: 11, fontWeight: "800" },
 
   heroTitle: {
@@ -450,8 +463,30 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
 
-  heroPillDot:  { width: 6, height: 6, borderRadius: 999 },
+  heroPillDot: { width: 6, height: 6, borderRadius: 999 },
   heroPillText: { fontSize: 11, fontWeight: "700", color: "#fff" },
+
+  heroCoverImage: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    width: "100%",
+    height: "100%",
+  },
+  heroCoverOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+  },
+  heroTopOverImage: {
+    zIndex: 2,
+  },
+  heroTitleOverImage: {
+    zIndex: 2,
+  },
+  heroPillsOverImage: {
+    zIndex: 2,
+  },
+
+  
 
   // ── Card ──────────────────────────────────────────────────────────────────
   card: {
@@ -460,7 +495,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     ...Platform.select({
-      ios:     { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+      ios: { shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
       android: { elevation: 2 },
     }),
   },
@@ -474,28 +509,28 @@ const styles = StyleSheet.create({
   },
 
   // ── InfoRow ───────────────────────────────────────────────────────────────
-  infoRow:     { flexDirection: "row", alignItems: "center", gap: 12 },
-  infoIconWrap:{ width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  infoLabel:   { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 1 },
-  infoValue:   { fontSize: 14, fontWeight: "600" },
-  descWrap:    { gap: 4, paddingTop: 4 },
-  descText:    { fontSize: 14, lineHeight: 21 },
+  infoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  infoIconWrap: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  infoLabel: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 1 },
+  infoValue: { fontSize: 14, fontWeight: "600" },
+  descWrap: { gap: 4, paddingTop: 4 },
+  descText: { fontSize: 14, lineHeight: 21 },
 
   // ── Chips ─────────────────────────────────────────────────────────────────
-  chipRow:      { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   ministryChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
-  ministryDot:  { width: 7, height: 7, borderRadius: 999 },
+  ministryDot: { width: 7, height: 7, borderRadius: 999 },
   ministryText: { fontSize: 12, fontWeight: "800" },
 
   // ── Blocks / People ───────────────────────────────────────────────────────
-  blockHeader:  { flexDirection: "row", alignItems: "center", gap: 8 },
-  blockIconWrap:{ width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  blockTitle:   { fontSize: 13, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
-  personRow:    { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1 },
+  blockHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  blockIconWrap: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  blockTitle: { fontSize: 13, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
+  personRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1 },
   personAvatar: { width: 34, height: 34, borderRadius: 999, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  personInitial:{ fontSize: 14, fontWeight: "900" },
-  personName:   { fontSize: 13, fontWeight: "800", color: NAVY },
-  personRole:   { fontSize: 11, marginTop: 1 },
+  personInitial: { fontSize: 14, fontWeight: "900" },
+  personName: { fontSize: 13, fontWeight: "800", color: NAVY },
+  personRole: { fontSize: 11, marginTop: 1 },
 
   // ── Confirmações ──────────────────────────────────────────────────────────
   confirmPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
@@ -523,6 +558,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Botão editar rodapé ───────────────────────────────────────────────────
-  editBtn:        { borderRadius: 20, marginTop: 4 },
+  editBtn: { borderRadius: 20, marginTop: 4 },
   editBtnContent: { height: 52 },
 });

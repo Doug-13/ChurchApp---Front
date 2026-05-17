@@ -18,6 +18,37 @@ import {
 } from "react-native-paper";
 import { useAuth } from "../../context/AuthContext";
 
+// ─── Design System ────────────────────────────────────────────────────────────
+// Conforme Design Manual ChurchApp v1.0
+
+const DS = {
+  colors: {
+    navy:        "#1A2366",
+    primary:     "#4158D0",
+    tint:        "#EEF0FA",
+    background:  "#F5F6FA",
+    surface:     "#FFFFFF",
+    text:        "#1A2366",
+    muted:       "#9198B5",
+    outline:     "#E4E6F0",
+    success:     "#2DBF8A",
+    successLight:"#E8F9F3",
+    danger:      "#E84D4D",
+    dangerLight: "#FEECEC",
+    warning:     "#F5A623",
+    warningLight:"#FEF5E7",
+  },
+  radius: {
+    pill: 999,
+    xl:   28,
+    lg:   24,
+    card: 20,
+    md:   16,
+    sm:   12,
+    xs:   8,
+  },
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(value) {
@@ -38,58 +69,58 @@ function isPast(value) {
   return new Date(iso) < new Date();
 }
 
-// Pure function — no hooks, safe to call anywhere
-function getStatusCfg(status, colors) {
+function getStatusCfg(status) {
   if (status === "CONFIRMED")
     return {
       label: "Confirmado",
       icon: "check-circle-outline",
-      bg: colors.secondaryContainer ?? colors.primaryContainer,
-      fg: colors.secondary ?? colors.primary,
+      bg: DS.colors.successLight,
+      fg: DS.colors.success,
     };
   if (status === "DECLINED")
     return {
       label: "Recusado",
       icon: "close-circle-outline",
-      bg: colors.errorContainer,
-      fg: colors.error,
+      bg: DS.colors.dangerLight,
+      fg: DS.colors.danger,
     };
   return {
     label: "Pendente",
     icon: "clock-outline",
-    bg: colors.tertiaryContainer ?? colors.primaryContainer,
-    fg: colors.tertiary ?? colors.primary,
+    bg: DS.colors.warningLight,
+    fg: DS.colors.warning,
   };
 }
 
-// ─── Sub-components (hooks allowed here at top level) ────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatusPill({ status }) {
-  const theme = useTheme(); // ✅ hook at top level of its own component
-  const cfg = getStatusCfg(status, theme.colors);
+  const cfg = getStatusCfg(status);
   return (
     <View style={[styles.pill, { backgroundColor: cfg.bg }]}>
-      <Icon source={cfg.icon} size={14} color={cfg.fg} />
-      <Text variant="labelSmall" style={{ color: cfg.fg, fontWeight: "700" }}>
-        {cfg.label}
-      </Text>
+      <Icon source={cfg.icon} size={13} color={cfg.fg} />
+      <Text style={[styles.pillText, { color: cfg.fg }]}>{cfg.label}</Text>
     </View>
   );
 }
 
 function RoleBadge({ roleName, ministryName }) {
-  const theme = useTheme();
   return (
-    <View style={[styles.roleBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
-      <Icon source="account-music-outline" size={15} color={theme.colors.onSurfaceVariant} />
-      <Text variant="labelMedium" style={{ color: theme.colors.onSurface, fontWeight: "700" }}>
-        {roleName}
-      </Text>
+    <View style={styles.roleBadge}>
+      <Icon source="account-music-outline" size={14} color={DS.colors.primary} />
+      <Text style={styles.roleName}>{roleName}</Text>
       {ministryName ? (
-        <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-          • {ministryName}
-        </Text>
+        <Text style={styles.roleMinistry}>• {ministryName}</Text>
       ) : null}
+    </View>
+  );
+}
+
+function SectionHeader({ label }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionHeaderBar} />
+      <Text style={styles.sectionHeaderText}>{label}</Text>
     </View>
   );
 }
@@ -102,37 +133,38 @@ function EventCard({ item, onConfirm, confirming, navigation, activeChurchId }) 
 
   return (
     <Card
-      mode="outlined"
-      style={[styles.card, { borderColor: theme.colors.outlineVariant }]}
+      mode="elevated"
+      elevation={1}
+      style={styles.card}
       onPress={() =>
         navigation.navigate("ScheduleDetails", { id: item.eventId, churchId: activeChurchId })
       }
     >
-      <Card.Content style={{ gap: 10 }}>
+      {/* Faixa superior colorida — padrão dos cards do manual */}
+      <View style={[styles.cardStrip, { backgroundColor: DS.colors.primary }]} />
+
+      <Card.Content style={styles.cardContent}>
+        {/* Topo: ícone + título + status */}
         <View style={styles.topRow}>
-          <View style={[styles.iconWrap, { backgroundColor: theme.colors.primaryContainer }]}>
-            <Icon source="calendar-star" size={20} color={theme.colors.primary} />
+          <View style={styles.iconWrap}>
+            <Icon source="calendar-star" size={20} color={DS.colors.primary} />
           </View>
 
           <View style={{ flex: 1 }}>
-            <Text variant="titleMedium" style={{ fontWeight: "800" }} numberOfLines={1}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
               {item.event?.title ?? "Evento"}
             </Text>
             <View style={styles.metaRow}>
-              <Icon source="calendar-outline" size={14} color={theme.colors.onSurfaceVariant} />
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              <Icon source="calendar-outline" size={13} color={DS.colors.muted} />
+              <Text style={styles.metaText}>
                 {formatDate(item.event?.dateLabel)}
                 {item.event?.timeLabel ? ` • ${item.event.timeLabel}` : ""}
               </Text>
             </View>
             {item.event?.location ? (
               <View style={styles.metaRow}>
-                <Icon source="map-marker-outline" size={14} color={theme.colors.onSurfaceVariant} />
-                <Text
-                  variant="bodySmall"
-                  style={{ color: theme.colors.onSurfaceVariant }}
-                  numberOfLines={1}
-                >
+                <Icon source="map-marker-outline" size={13} color={DS.colors.muted} />
+                <Text style={styles.metaText} numberOfLines={1}>
                   {item.event.location}
                 </Text>
               </View>
@@ -142,8 +174,10 @@ function EventCard({ item, onConfirm, confirming, navigation, activeChurchId }) 
           <StatusPill status={item.status} />
         </View>
 
+        {/* Badge de função */}
         <RoleBadge roleName={item.roleName} ministryName={item.ministry?.name} />
 
+        {/* Ações — só se pendente e não passado */}
         {canAct && (
           <View style={styles.actionsRow}>
             <Button
@@ -151,10 +185,8 @@ function EventCard({ item, onConfirm, confirming, navigation, activeChurchId }) 
               icon="check"
               loading={isConfirming}
               disabled={isConfirming}
-              style={[
-                styles.actionBtn,
-                { backgroundColor: theme.colors.secondary ?? theme.colors.primary },
-              ]}
+              style={[styles.actionBtn, { backgroundColor: DS.colors.success }]}
+              labelStyle={{ fontWeight: "800", fontSize: 13 }}
               onPress={() => onConfirm(item, "CONFIRMED")}
             >
               Confirmar
@@ -163,8 +195,9 @@ function EventCard({ item, onConfirm, confirming, navigation, activeChurchId }) 
               mode="outlined"
               icon="close"
               disabled={isConfirming}
-              style={styles.actionBtn}
-              textColor={theme.colors.error}
+              style={[styles.actionBtn, styles.actionBtnOutline]}
+              textColor={DS.colors.danger}
+              labelStyle={{ fontWeight: "800", fontSize: 13 }}
               onPress={() => onConfirm(item, "DECLINED")}
             >
               Recusar
@@ -173,7 +206,7 @@ function EventCard({ item, onConfirm, confirming, navigation, activeChurchId }) 
         )}
 
         {!canAct && item.status !== "PENDING" && (
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+          <Text style={styles.feedbackText}>
             {item.status === "CONFIRMED"
               ? "✓ Você confirmou sua participação."
               : "✗ Você recusou sua participação."}
@@ -181,9 +214,7 @@ function EventCard({ item, onConfirm, confirming, navigation, activeChurchId }) 
         )}
 
         {past && item.status === "PENDING" && (
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Evento já realizado.
-          </Text>
+          <Text style={styles.feedbackText}>Evento já realizado.</Text>
         )}
       </Card.Content>
     </Card>
@@ -191,54 +222,50 @@ function EventCard({ item, onConfirm, confirming, navigation, activeChurchId }) 
 }
 
 function ScheduleCard({ item, navigation }) {
-  const theme = useTheme();
+  const past = isPast(item.date);
+
   return (
     <Card
-      mode="outlined"
-      style={[styles.card, { borderColor: theme.colors.outlineVariant }]}
+      mode="elevated"
+      elevation={1}
+      style={[styles.card, past && { opacity: 0.7 }]}
       onPress={() => navigation.navigate("ScheduleDetails", { id: item.scheduleId })}
     >
-      <Card.Content style={{ gap: 10 }}>
+      <View style={[styles.cardStrip, { backgroundColor: DS.colors.navy }]} />
+
+      <Card.Content style={styles.cardContent}>
         <View style={styles.topRow}>
-          <View style={[styles.iconWrap, { backgroundColor: theme.colors.primaryContainer }]}>
-            <Icon source="calendar-check-outline" size={20} color={theme.colors.primary} />
+          <View style={[styles.iconWrap, { backgroundColor: DS.colors.tint }]}>
+            <Icon source="calendar-check-outline" size={20} color={DS.colors.primary} />
           </View>
 
           <View style={{ flex: 1 }}>
-            <Text variant="titleMedium" style={{ fontWeight: "800" }} numberOfLines={1}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
               {item.title}
             </Text>
             <View style={styles.metaRow}>
-              <Icon source="calendar-outline" size={14} color={theme.colors.onSurfaceVariant} />
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                {formatDate(item.date)}
-              </Text>
+              <Icon source="calendar-outline" size={13} color={DS.colors.muted} />
+              <Text style={styles.metaText}>{formatDate(item.date)}</Text>
             </View>
           </View>
 
-          <View style={[styles.pill, { backgroundColor: theme.colors.primaryContainer }]}>
-            <Icon source="account-check-outline" size={14} color={theme.colors.primary} />
-            <Text variant="labelSmall" style={{ color: theme.colors.primary, fontWeight: "700" }}>
+          <View style={[styles.pill, { backgroundColor: DS.colors.tint }]}>
+            <Icon source="account-check-outline" size={13} color={DS.colors.primary} />
+            <Text style={[styles.pillText, { color: DS.colors.primary }]}>
               {item.roleName || "Escalado"}
             </Text>
           </View>
         </View>
 
         {item.notes ? (
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSurfaceVariant }}
-            numberOfLines={2}
-          >
+          <Text style={styles.notesText} numberOfLines={2}>
             {item.notes}
           </Text>
         ) : null}
 
         <View style={styles.footerRow}>
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Toque para ver detalhes
-          </Text>
-          <Icon source="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
+          <Text style={styles.footerHint}>Toque para ver detalhes</Text>
+          <Icon source="chevron-right" size={18} color={DS.colors.muted} />
         </View>
       </Card.Content>
     </Card>
@@ -248,7 +275,6 @@ function ScheduleCard({ item, navigation }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function MySchedulesScreen({ navigation }) {
-  const theme = useTheme();
   const { apiFetchAuth, activeChurchId, meLoading } = useAuth();
 
   const [eventAssignments, setEventAssignments] = useState([]);
@@ -260,7 +286,7 @@ export default function MySchedulesScreen({ navigation }) {
   const [tab, setTab] = useState("Eventos");
   const [filter, setFilter] = useState("Todos");
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────────
+  // ── Fetch ─────────────────────────────────────────────────────────────────
 
   const fetchAll = useCallback(async () => {
     if (!activeChurchId) return;
@@ -298,7 +324,7 @@ export default function MySchedulesScreen({ navigation }) {
     setRefreshing(false);
   }, [fetchAll]);
 
-  // ── Confirm ───────────────────────────────────────────────────────────────────
+  // ── Confirm ───────────────────────────────────────────────────────────────
 
   const handleConfirm = useCallback(
     (item, status) => {
@@ -333,20 +359,20 @@ export default function MySchedulesScreen({ navigation }) {
     [apiFetchAuth, activeChurchId],
   );
 
-  // ── Filtered ──────────────────────────────────────────────────────────────────
+  // ── Filtered ──────────────────────────────────────────────────────────────
 
   const filteredEvents = useMemo(() => {
     return eventAssignments.filter((a) => {
-      if (filter === "Pendentes") return a.status === "PENDING";
+      if (filter === "Pendentes")   return a.status === "PENDING";
       if (filter === "Confirmados") return a.status === "CONFIRMED";
-      if (filter === "Recusados") return a.status === "DECLINED";
+      if (filter === "Recusados")   return a.status === "DECLINED";
       return true;
     });
   }, [eventAssignments, filter]);
 
   const filteredSchedules = useMemo(() => {
     return schedules.filter((s) => {
-      if (filter === "Futuros") return !isPast(s.date);
+      if (filter === "Futuros")  return !isPast(s.date);
       if (filter === "Passados") return isPast(s.date);
       return true;
     });
@@ -360,7 +386,7 @@ export default function MySchedulesScreen({ navigation }) {
     [eventAssignments],
   );
 
-  // ── Render fns (no hooks — props passed down to components) ──────────────────
+  // ── Render fns ─────────────────────────────────────────────────────────────
 
   const renderEvent = useCallback(
     ({ item }) => (
@@ -380,77 +406,92 @@ export default function MySchedulesScreen({ navigation }) {
     [navigation],
   );
 
-  // ── Loading ───────────────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────
 
   if (
     meLoading ||
     (loading && eventAssignments.length === 0 && schedules.length === 0 && !error)
   ) {
     return (
-      <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.center}>
-          <ActivityIndicator color={theme.colors.primary} size="large" />
-          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 12 }}>
-            Carregando escalas...
-          </Text>
-        </View>
+      <View style={styles.loadingRoot}>
+        <ActivityIndicator color={DS.colors.primary} size="large" />
+        <Text style={styles.loadingText}>Carregando escalas...</Text>
       </View>
     );
   }
 
-  // ── UI ────────────────────────────────────────────────────────────────────────
+  // ── UI ─────────────────────────────────────────────────────────────────────
 
   const isEventTab = tab === "Eventos";
   const listData = isEventTab ? filteredEvents : filteredSchedules;
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
+    <View style={styles.root}>
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <Text variant="headlineSmall" style={{ fontWeight: "800" }}>
-          Minhas escalas
-        </Text>
-        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
-          {pendingCount > 0
-            ? `${pendingCount} confirmação${pendingCount !== 1 ? "ões" : ""} pendente${pendingCount !== 1 ? "s" : ""}`
-            : "Tudo em dia!"}
-        </Text>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.headerIconWrap}>
+            <Icon source="calendar-month-outline" size={22} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.headerTitle}>Minhas escalas</Text>
+            <Text style={styles.headerSub}>
+              {pendingCount > 0
+                ? `${pendingCount} confirmação${pendingCount !== 1 ? "ões" : ""} pendente${pendingCount !== 1 ? "s" : ""}`
+                : "Tudo em dia! ✓"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Badge de pendentes */}
+        {pendingCount > 0 && (
+          <View style={styles.pendingBadge}>
+            <Icon source="bell-ring-outline" size={14} color={DS.colors.warning} />
+            <Text style={styles.pendingBadgeText}>
+              {pendingCount} confirmação{pendingCount !== 1 ? "ões" : ""} aguardando resposta
+            </Text>
+          </View>
+        )}
       </View>
 
+      {/* ── Erro ───────────────────────────────────────────────────────── */}
       {error ? (
-        <Surface
-          style={[styles.errorBanner, { backgroundColor: theme.colors.errorContainer }]}
-          elevation={0}
-        >
-          <Icon source="alert-circle-outline" size={16} color={theme.colors.error} />
-          <Text style={{ color: theme.colors.onErrorContainer, flex: 1, marginLeft: 8 }}>
-            {error}
-          </Text>
-          <Button mode="text" compact onPress={fetchAll} textColor={theme.colors.error}>
+        <View style={styles.errorBanner}>
+          <Icon source="alert-circle-outline" size={16} color={DS.colors.danger} />
+          <Text style={styles.errorText}>{error}</Text>
+          <Button
+            mode="text"
+            compact
+            onPress={fetchAll}
+            textColor={DS.colors.danger}
+            labelStyle={{ fontWeight: "800", fontSize: 12 }}
+          >
             Tentar
           </Button>
-        </Surface>
+        </View>
       ) : null}
 
-      {/* Tab switcher */}
+      {/* ── Tabs ───────────────────────────────────────────────────────── */}
       <View style={styles.tabRow}>
-        {["Eventos", "Serviços"].map((t) => (
-          <Button
-            key={t}
-            mode={tab === t ? "contained" : "outlined"}
-            onPress={() => { setTab(t); setFilter("Todos"); }}
-            style={styles.tabBtn}
-            compact
-          >
-            {t === "Eventos" && eventAssignments.length > 0
-              ? `Eventos (${eventAssignments.length})`
-              : t === "Serviços" && schedules.length > 0
-              ? `Serviços (${schedules.length})`
-              : t}
-          </Button>
-        ))}
+        {["Eventos", "Serviços"].map((t) => {
+          const active = tab === t;
+          const count = t === "Eventos" ? eventAssignments.length : schedules.length;
+          return (
+            <Button
+              key={t}
+              mode={active ? "contained" : "outlined"}
+              onPress={() => { setTab(t); setFilter("Todos"); }}
+              style={[styles.tabBtn, active && styles.tabBtnActive]}
+              labelStyle={[styles.tabLabel, active && styles.tabLabelActive]}
+              compact
+            >
+              {count > 0 ? `${t} (${count})` : t}
+            </Button>
+          );
+        })}
       </View>
 
-      {/* Filters */}
+      {/* ── Filtros ────────────────────────────────────────────────────── */}
       <View style={styles.chipsRow}>
         {(isEventTab
           ? ["Todos", "Pendentes", "Confirmados", "Recusados"]
@@ -461,7 +502,16 @@ export default function MySchedulesScreen({ navigation }) {
             selected={filter === f}
             onPress={() => setFilter(f)}
             mode={filter === f ? "flat" : "outlined"}
-            style={styles.chip}
+            style={[
+              styles.chip,
+              filter === f
+                ? { backgroundColor: DS.colors.primary }
+                : { backgroundColor: DS.colors.surface, borderColor: DS.colors.outline },
+            ]}
+            textStyle={[
+              styles.chipText,
+              filter === f ? { color: "#fff" } : { color: DS.colors.muted },
+            ]}
             compact
           >
             {f}
@@ -469,6 +519,7 @@ export default function MySchedulesScreen({ navigation }) {
         ))}
       </View>
 
+      {/* ── Lista ──────────────────────────────────────────────────────── */}
       <FlatList
         data={listData}
         keyExtractor={(item, idx) =>
@@ -476,31 +527,29 @@ export default function MySchedulesScreen({ navigation }) {
             ? `ev-${item.eventId}-${idx}`
             : `sc-${item.scheduleId}-${item.assignmentId}-${idx}`
         }
-        contentContainerStyle={{ paddingTop: 10, paddingBottom: 96 }}
+        contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[DS.colors.primary]}
+            tintColor={DS.colors.primary}
+          />
+        }
         ListEmptyComponent={
           !loading ? (
-            <Surface
-              style={[
-                styles.empty,
-                { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
-              ]}
-              elevation={0}
-            >
-              <Icon source="calendar-remove-outline" size={32} color={theme.colors.onSurfaceVariant} />
-              <Text variant="titleMedium" style={{ marginTop: 12, fontWeight: "700" }}>
-                Nenhuma escala encontrada
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant, marginTop: 4, textAlign: "center" }}
-              >
+            <View style={styles.emptyCard}>
+              <View style={styles.emptyIconWrap}>
+                <Icon source="calendar-remove-outline" size={28} color={DS.colors.primary} />
+              </View>
+              <Text style={styles.emptyTitle}>Nenhuma escala encontrada</Text>
+              <Text style={styles.emptyText}>
                 {isEventTab
                   ? "Você ainda não está escalado para nenhum evento."
                   : "Você ainda não foi escalado para nenhum serviço."}
               </Text>
-            </Surface>
+            </View>
           ) : null
         }
         renderItem={isEventTab ? renderEvent : renderSchedule}
@@ -512,61 +561,315 @@ export default function MySchedulesScreen({ navigation }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  header: { marginBottom: 8 },
-  tabRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
-  tabBtn: { flex: 1, borderRadius: 12 },
-  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 6 },
-  chip: { borderRadius: 999 },
-  card: { borderRadius: 18 },
-  topRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+  // ── Root ──────────────────────────────────────────────────────────────────
+  root: {
+    flex: 1,
+    backgroundColor: DS.colors.background,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  loadingRoot: {
+    flex: 1,
+    backgroundColor: DS.colors.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    color: DS.colors.muted,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // ── Header ────────────────────────────────────────────────────────────────
+  header: {
+    backgroundColor: DS.colors.navy,
+    borderRadius: DS.radius.card,
+    padding: 18,
+    marginBottom: 14,
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: DS.radius.sm,
+    backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
   },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: -0.5,
+  },
+  headerSub: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.65)",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  pendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: DS.colors.warningLight,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: DS.radius.pill,
+    alignSelf: "flex-start",
+  },
+  pendingBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: DS.colors.warning,
+  },
+
+  // ── Error banner ──────────────────────────────────────────────────────────
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: DS.colors.dangerLight,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: DS.radius.sm,
+    marginBottom: 10,
+    gap: 8,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: DS.colors.danger,
+    fontWeight: "600",
+  },
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  tabRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 10,
+  },
+  tabBtn: {
+    flex: 1,
+    borderRadius: DS.radius.md,
+    borderColor: DS.colors.outline,
+  },
+  tabBtnActive: {
+    backgroundColor: DS.colors.primary,
+  },
+  tabLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: DS.colors.muted,
+  },
+  tabLabelActive: {
+    color: "#fff",
+    fontWeight: "800",
+  },
+
+  // ── Chips ─────────────────────────────────────────────────────────────────
+  chipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
+  chip: {
+    borderRadius: DS.radius.pill,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  // ── Cards ─────────────────────────────────────────────────────────────────
+  listContent: {
+    paddingTop: 10,
+    paddingBottom: 96,
+  },
+  card: {
+    borderRadius: DS.radius.card,
+    backgroundColor: DS.colors.surface,
+    overflow: "hidden",
+    borderWidth: 0,
+  },
+  cardStrip: {
+    height: 4,
+    width: "100%",
+  },
+  cardContent: {
+    gap: 10,
+    paddingTop: 14,
+    paddingBottom: 14,
+  },
+
+  // ── Card top row ──────────────────────────────────────────────────────────
+  topRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  iconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: DS.radius.sm,
+    backgroundColor: DS.colors.tint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: DS.colors.navy,
+    letterSpacing: -0.3,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 3,
+  },
+  metaText: {
+    fontSize: 12,
+    color: DS.colors.muted,
+    fontWeight: "500",
+  },
+
+  // ── Pill ──────────────────────────────────────────────────────────────────
   pill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 9,
+    paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: DS.radius.pill,
     alignSelf: "flex-start",
   },
+  pillText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  // ── Role badge ────────────────────────────────────────────────────────────
   roleBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    backgroundColor: DS.colors.tint,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingVertical: 7,
+    borderRadius: DS.radius.xs,
     alignSelf: "flex-start",
   },
-  actionsRow: { flexDirection: "row", gap: 10, marginTop: 4 },
-  actionBtn: { flex: 1, borderRadius: 12 },
+  roleName: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: DS.colors.navy,
+  },
+  roleMinistry: {
+    fontSize: 12,
+    color: DS.colors.muted,
+    fontWeight: "500",
+  },
+
+  // ── Action buttons ────────────────────────────────────────────────────────
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  actionBtn: {
+    flex: 1,
+    borderRadius: DS.radius.md,
+  },
+  actionBtnOutline: {
+    borderColor: DS.colors.danger,
+  },
+
+  // ── Feedback text ─────────────────────────────────────────────────────────
+  feedbackText: {
+    fontSize: 12,
+    color: DS.colors.muted,
+    fontWeight: "500",
+  },
+
+  // ── Schedule card extras ──────────────────────────────────────────────────
+  notesText: {
+    fontSize: 13,
+    color: DS.colors.muted,
+    lineHeight: 18,
+  },
   footerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 2,
   },
-  empty: {
-    marginTop: 32,
-    padding: 24,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: "center",
+  footerHint: {
+    fontSize: 12,
+    color: DS.colors.muted,
+    fontWeight: "500",
   },
-  errorBanner: {
+
+  // ── Section header ────────────────────────────────────────────────────────
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 8,
+    gap: 8,
+    marginTop: 18,
+    marginBottom: 12,
   },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  sectionHeaderBar: {
+    width: 3,
+    height: 16,
+    borderRadius: DS.radius.pill,
+    backgroundColor: DS.colors.primary,
+  },
+  sectionHeaderText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: DS.colors.navy,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+
+  // ── Empty state ────────────────────────────────────────────────────────────
+  emptyCard: {
+    marginTop: 32,
+    backgroundColor: DS.colors.surface,
+    borderWidth: 1,
+    borderColor: DS.colors.outline,
+    borderRadius: DS.radius.lg,
+    padding: 32,
+    alignItems: "center",
+  },
+  emptyIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: DS.radius.card,
+    backgroundColor: DS.colors.tint,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: DS.colors.navy,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  emptyText: {
+    fontSize: 13,
+    color: DS.colors.muted,
+    textAlign: "center",
+    lineHeight: 19,
+    fontWeight: "500",
+  },
 });

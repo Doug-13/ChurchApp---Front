@@ -22,17 +22,18 @@ import { getAuth, getIdToken } from "@react-native-firebase/auth";
 
 import { createChurch } from "../../services/churchService";
 import { API_BASE_URL } from "../../config/api";
+import { useAuth } from "../../context/AuthContext";
 
 // ── Constantes fixas do Design Manual ──────────────────────────────────────
-const NAVY        = "#1A2366";
-const BRAND_BLUE  = "#4158D0";
-const BRAND_LIGHT = "#EEF0FA";
-const BG          = "#F5F6FA";
-const MUTED       = "#9198B5";
-const BORDER      = "#E4E6F0";
-const SUCCESS     = "#2DBF8A";
+const NAVY          = "#1A2366";
+const BRAND_BLUE    = "#4158D0";
+const BRAND_LIGHT   = "#EEF0FA";
+const BG            = "#F5F6FA";
+const MUTED         = "#9198B5";
+const BORDER        = "#E4E6F0";
+const SUCCESS       = "#2DBF8A";
 const SUCCESS_LIGHT = "#E8F9F3";
-const WARNING     = "#F5A623";
+const WARNING       = "#F5A623";
 
 // Dados estáticos fora do componente
 const FILTER_PILLS = [
@@ -77,7 +78,6 @@ async function fetchChurches(term) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-componentes definidos NO NÍVEL DO MÓDULO (fora do componente pai).
-// Não chamam hooks — recebem tudo via props. Padrão do Design Manual.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TabButton({ label, icon, active, onPress }) {
@@ -102,14 +102,13 @@ function TabButton({ label, icon, active, onPress }) {
 }
 
 function ChurchCard({ item, onPress, surfaceColor }) {
-  // Normaliza os vários campos de imagem que o backend pode retornar
   const imageUrl =
-    item.logoUrl     ||
-    item.photoUrl    ||
-    item.imageUrl    ||
-    item.avatarUrl   ||
-    item.coverUrl    ||
-    item.photo       ||
+    item.logoUrl   ||
+    item.photoUrl  ||
+    item.imageUrl  ||
+    item.avatarUrl ||
+    item.coverUrl  ||
+    item.photo     ||
     null;
 
   return (
@@ -147,34 +146,16 @@ function ChurchCard({ item, onPress, surfaceColor }) {
           </View>
 
           <View style={styles.rowWrap}>
-            <View style={[
-              styles.pill,
-              { backgroundColor: item.isPublic ? SUCCESS_LIGHT : BRAND_LIGHT },
-            ]}>
-              <View style={[
-                styles.pillDot,
-                { backgroundColor: item.isPublic ? SUCCESS : BRAND_BLUE },
-              ]} />
-              <Text style={[
-                styles.pillText,
-                { color: item.isPublic ? SUCCESS : BRAND_BLUE },
-              ]}>
+            <View style={[styles.pill, { backgroundColor: item.isPublic ? SUCCESS_LIGHT : BRAND_LIGHT }]}>
+              <View style={[styles.pillDot, { backgroundColor: item.isPublic ? SUCCESS : BRAND_BLUE }]} />
+              <Text style={[styles.pillText, { color: item.isPublic ? SUCCESS : BRAND_BLUE }]}>
                 {item.isPublic ? "Pública" : "Privada"}
               </Text>
             </View>
 
-            <View style={[
-              styles.pill,
-              { backgroundColor: item.requiresApproval ? "#FEF5E7" : SUCCESS_LIGHT },
-            ]}>
-              <View style={[
-                styles.pillDot,
-                { backgroundColor: item.requiresApproval ? WARNING : SUCCESS },
-              ]} />
-              <Text style={[
-                styles.pillText,
-                { color: item.requiresApproval ? WARNING : SUCCESS },
-              ]}>
+            <View style={[styles.pill, { backgroundColor: item.requiresApproval ? "#FEF5E7" : SUCCESS_LIGHT }]}>
+              <View style={[styles.pillDot, { backgroundColor: item.requiresApproval ? WARNING : SUCCESS }]} />
+              <Text style={[styles.pillText, { color: item.requiresApproval ? WARNING : SUCCESS }]}>
                 {item.requiresApproval ? "Aprovação" : "Entrada direta"}
               </Text>
             </View>
@@ -246,13 +227,19 @@ function TextLinkButton({ label, onPress }) {
 const ListSeparator = () => <View style={{ height: 12 }} />;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Componente principal — todos os hooks chamados no topo, incondicionalmente
+// Componente principal
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ChurchOnboardingScreen({ navigation }) {
   const theme = useTheme();
 
-  // tc centralizado — padrão do Design Manual
+  // ── refreshMe do AuthContext ──────────────────────────────────────────────
+  // Após criar/entrar na igreja, chamar refreshMe() atualiza o churchStatus
+  // para "ready" e o RootNavigator troca automaticamente para AppTabs.
+  // NÃO é necessário chamar navigation.navigate/reset — o RootNavigator
+  // já faz isso ao reagir à mudança de estado do AuthContext.
+  const { refreshMe } = useAuth();
+
   const tc = useMemo(() => ({
     surface: theme.colors.surface,
     bg:      theme.colors.background,
@@ -262,7 +249,7 @@ export default function ChurchOnboardingScreen({ navigation }) {
     primary: theme.colors.primary,
   }), [theme]);
 
-  // ── State (todos incondicionais no topo) ──
+  // ── State ──
   const [tab,           setTab]           = useState("search");
   const [q,             setQ]             = useState("");
   const [loadingSearch, setLoadingSearch] = useState(false);
@@ -278,7 +265,7 @@ export default function ChurchOnboardingScreen({ navigation }) {
   const showError    = useCallback((text) => setSnack({ visible: true, text: String(text || "") }), []);
   const dismissSnack = useCallback(() => setSnack({ visible: false, text: "" }), []);
 
-  // ── Busca com debounce — usa fetchChurches com token Firebase ──
+  // ── Busca com debounce ──
   useEffect(() => {
     let alive = true;
     const term = q.trim();
@@ -289,11 +276,9 @@ export default function ChurchOnboardingScreen({ navigation }) {
         if (!alive) return;
         const items = Array.isArray(data)
           ? data
-          : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.data)
-              ? data.data
-              : [];
+          : Array.isArray(data?.items) ? data.items
+          : Array.isArray(data?.data)  ? data.data
+          : [];
         setChurches(items);
       } catch (e) {
         if (alive) showError(e?.message || "Erro ao buscar igrejas. Verifique sua conexão.");
@@ -305,15 +290,6 @@ export default function ChurchOnboardingScreen({ navigation }) {
   }, [q, showError]);
 
   // ── Navegação ──
-  const goToHomeTab = useCallback(() => {
-    const parent = navigation.getParent?.();
-    if (parent?.reset) {
-      parent.reset({ index: 0, routes: [{ name: "HomeTab" }] });
-      return;
-    }
-    navigation.navigate("HomeTab");
-  }, [navigation]);
-
   const handleOpenChurch = useCallback((church) => {
     navigation.navigate("ChurchPublicProfile", { church });
   }, [navigation]);
@@ -342,19 +318,26 @@ export default function ChurchOnboardingScreen({ navigation }) {
     if (!name) return showError("Informe o nome da igreja.");
     if (!city) return showError("Informe a cidade.");
     if (!uf || uf.length !== 2) return showError("Informe a UF (2 letras).");
+
     try {
       setCreating(true);
       const baseSlug    = slugify(name);
       const basePayload = { name, city, state: uf, isPublic: true };
       let lastErr = null;
+
       for (let attempt = 0; attempt < 3; attempt++) {
         const slug = attempt === 0
           ? baseSlug
           : `${baseSlug}-${Math.floor(Math.random() * 1000)}`;
         try {
           await createChurch({ ...basePayload, slug });
-          goToHomeTab();
+
+          // ✅ Atualiza o AuthContext — churchStatus vai para "ready" e o
+          // RootNavigator troca automaticamente para AppTabs sem nenhum
+          // navigation.navigate/reset explícito.
+          await refreshMe();
           return;
+
         } catch (e) {
           lastErr = e;
           const msg = String(e?.message || e);
@@ -368,9 +351,9 @@ export default function ChurchOnboardingScreen({ navigation }) {
     } finally {
       setCreating(false);
     }
-  }, [newName, newCity, newState, goToHomeTab, showError]);
+  }, [newName, newCity, newState, refreshMe, showError]);
 
-  // renderItem estável — evita recriar função a cada render
+  // renderItem estável
   const renderChurchItem = useCallback(({ item }) => (
     <ChurchCard
       item={item}
@@ -384,8 +367,6 @@ export default function ChurchOnboardingScreen({ navigation }) {
   ), []);
 
   const goSearch = useCallback(() => setTab("search"), []);
-  const goCreate = useCallback(() => setTab("create"), []);
-
   const canCreate = Boolean(newName.trim() && newCity.trim() && newState.trim());
   const clearQ    = useCallback(() => setQ(""), []);
 
@@ -393,23 +374,12 @@ export default function ChurchOnboardingScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: BG }]}>
 
-      {/* ── Hero (NAVY fixo — Design Manual) ── */}
+      {/* ── Hero ── */}
       <View style={styles.hero}>
-        <View style={[styles.blob, {
-          width: 220, height: 220, top: -70, right: -60,
-          backgroundColor: "rgba(255,255,255,0.07)",
-        }]} />
-        <View style={[styles.blob, {
-          width: 140, height: 140, bottom: -80, left: -40,
-          backgroundColor: "rgba(255,255,255,0.05)",
-        }]} />
+        <View style={[styles.blob, { width: 220, height: 220, top: -70, right: -60, backgroundColor: "rgba(255,255,255,0.07)" }]} />
+        <View style={[styles.blob, { width: 140, height: 140, bottom: -80, left: -40, backgroundColor: "rgba(255,255,255,0.05)" }]} />
 
-        {/* ── Botão voltar para o login ── */}
-        <TouchableRipple
-          borderless
-          onPress={handleBackToLogin}
-          style={styles.backBtn}
-        >
+        <TouchableRipple borderless onPress={handleBackToLogin} style={styles.backBtn}>
           <View style={styles.backBtnInner}>
             <Icon source="arrow-left" size={16} color="rgba(255,255,255,0.85)" />
             <Text style={styles.backBtnText}>Voltar para o login</Text>
@@ -445,26 +415,14 @@ export default function ChurchOnboardingScreen({ navigation }) {
               value={q}
               onChangeText={setQ}
               left={<TextInput.Icon icon="magnify" color={MUTED} />}
-              right={q
-                ? <TextInput.Icon icon="close-circle" color={MUTED} onPress={clearQ} />
-                : null
-              }
+              right={q ? <TextInput.Icon icon="close-circle" color={MUTED} onPress={clearQ} /> : null}
               outlineStyle={{ borderRadius: 14, borderColor: BORDER }}
               style={{ backgroundColor: BG }}
             />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginTop: 10 }}
-            >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
               <View style={styles.filterRow}>
                 {FILTER_PILLS.map((f) => (
-                  <TouchableRipple
-                    key={f.label}
-                    borderless
-                    style={styles.filterPill}
-                    onPress={() => {}}
-                  >
+                  <TouchableRipple key={f.label} borderless style={styles.filterPill} onPress={() => {}}>
                     <View style={styles.filterPillInner}>
                       <Icon source={f.icon} size={12} color={BRAND_BLUE} />
                       <Text style={styles.filterPillText}>{f.label}</Text>
@@ -498,14 +456,8 @@ export default function ChurchOnboardingScreen({ navigation }) {
 
       {/* ══ ABA CÓDIGO ══ */}
       {tab === "code" && (
-        <ScrollView
-          contentContainerStyle={styles.tabContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Surface
-            style={[styles.sectionCard, { backgroundColor: tc.surface }]}
-            elevation={0}
-          >
+        <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+          <Surface style={[styles.sectionCard, { backgroundColor: tc.surface }]} elevation={0}>
             <View style={[styles.sectionStrip, { backgroundColor: BRAND_BLUE }]} />
             <View style={styles.sectionBody}>
               <View style={styles.sectionHeader}>
@@ -556,14 +508,8 @@ export default function ChurchOnboardingScreen({ navigation }) {
 
       {/* ══ ABA CRIAR ══ */}
       {tab === "create" && (
-        <ScrollView
-          contentContainerStyle={styles.tabContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Surface
-            style={[styles.sectionCard, { backgroundColor: tc.surface }]}
-            elevation={0}
-          >
+        <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+          <Surface style={[styles.sectionCard, { backgroundColor: tc.surface }]} elevation={0}>
             <View style={[styles.sectionStrip, { backgroundColor: SUCCESS }]} />
             <View style={styles.sectionBody}>
               <View style={styles.sectionHeader}>
@@ -665,7 +611,6 @@ export default function ChurchOnboardingScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  // Hero
   hero: {
     backgroundColor: NAVY,
     paddingHorizontal: 18,
@@ -674,56 +619,18 @@ const styles = StyleSheet.create({
   },
   blob: { position: "absolute", borderRadius: 999 },
 
-  // Back button
-  backBtn: {
-    alignSelf: "flex-start",
-    borderRadius: 999,
-    marginBottom: 12,
-    zIndex: 2,
-  },
-  backBtnInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 999,
-  },
-  backBtnText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.85)",
-  },
+  backBtn:      { alignSelf: "flex-start", borderRadius: 999, marginBottom: 12, zIndex: 2 },
+  backBtnInner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 999 },
+  backBtnText:  { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.85)" },
 
-  heroContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    zIndex: 2,
-    paddingBottom: 16,
-  },
-  heroIconWrap: {
-    width: 48, height: 48,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center", justifyContent: "center",
-  },
-  heroGreet: { fontSize: 11, fontWeight: "600", color: "rgba(255,255,255,0.65)" },
-  heroTitle: { fontSize: 20, fontWeight: "900", color: "#fff", letterSpacing: -0.5 },
-  heroMeta:  { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 },
+  heroContent:  { flexDirection: "row", alignItems: "center", gap: 12, zIndex: 2, paddingBottom: 16 },
+  heroIconWrap: { width: 48, height: 48, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center" },
+  heroGreet:    { fontSize: 11, fontWeight: "600", color: "rgba(255,255,255,0.65)" },
+  heroTitle:    { fontSize: 20, fontWeight: "900", color: "#fff", letterSpacing: -0.5 },
+  heroMeta:     { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 },
 
-  // Tab bar
-  tabBar: {
-    flexDirection: "row",
-    gap: 4,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 16,
-    padding: 4,
-    marginBottom: 16,
-    zIndex: 2,
-  },
-  tabBtn: { flex: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 4 },
+  tabBar:       { flexDirection: "row", gap: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 16, padding: 4, marginBottom: 16, zIndex: 2 },
+  tabBtn:       { flex: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 4 },
   tabBtnActive: {
     backgroundColor: "#fff",
     ...Platform.select({
@@ -731,120 +638,71 @@ const styles = StyleSheet.create({
       android: { elevation: 2 },
     }),
   },
-  tabBtnInner: { alignItems: "center", gap: 3 },
+  tabBtnInner:    { alignItems: "center", gap: 3 },
   tabLabel:       { fontSize: 10, fontWeight: "800", color: "rgba(255,255,255,0.65)", textAlign: "center" },
   tabLabelActive: { color: BRAND_BLUE },
 
-  // Search box
   searchBox: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomLeftRadius: 20, borderBottomRightRadius: 20,
     ...Platform.select({
       ios:     { shadowColor: NAVY, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
       android: { elevation: 2 },
     }),
   },
-  filterRow: { flexDirection: "row", gap: 8, paddingBottom: 2 },
-  filterPill: { borderRadius: 999, backgroundColor: BRAND_LIGHT },
-  filterPillInner: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    paddingHorizontal: 11, paddingVertical: 5,
-  },
-  filterPillText: { fontSize: 11, fontWeight: "700", color: BRAND_BLUE },
+  filterRow:        { flexDirection: "row", gap: 8, paddingBottom: 2 },
+  filterPill:       { borderRadius: 999, backgroundColor: BRAND_LIGHT },
+  filterPillInner:  { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 11, paddingVertical: 5 },
+  filterPillText:   { fontSize: 11, fontWeight: "700", color: BRAND_BLUE },
 
-  // Church card
-  churchCard: {
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: BORDER,
-    ...Platform.select({
-      ios:     { shadowColor: NAVY, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-      android: { elevation: 2 },
-    }),
-  },
+  churchCard:           { borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: BORDER, ...Platform.select({ ios: { shadowColor: NAVY, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 2 } }) },
   cardStrip:            { height: 4 },
   churchCardBody:       { padding: 14, gap: 10 },
-  churchAvatarFallback: {
-    width: 44, height: 44, borderRadius: 14,
-    backgroundColor: BRAND_LIGHT, alignItems: "center", justifyContent: "center",
-  },
-  churchAvatar: { borderRadius: 14 },
-  churchName:   { fontSize: 14, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
-  churchMeta:   { fontSize: 12, color: MUTED, marginTop: 2 },
+  churchAvatarFallback: { width: 44, height: 44, borderRadius: 14, backgroundColor: BRAND_LIGHT, alignItems: "center", justifyContent: "center" },
+  churchAvatar:         { borderRadius: 14 },
+  churchName:           { fontSize: 14, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
+  churchMeta:           { fontSize: 12, color: MUTED, marginTop: 2 },
 
-  // Pills
   pill:     { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
   pillDot:  { width: 6, height: 6, borderRadius: 999 },
   pillText: { fontSize: 10, fontWeight: "800" },
 
-  // Loading
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, minHeight: 140 },
   loadingText: { fontSize: 13, color: MUTED, fontWeight: "600" },
 
-  // Empty state
-  emptyState: {
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    borderRadius: 20,
-    padding: 24,
-    gap: 8,
-    marginTop: 12,
-  },
-  emptyIcon: {
-    width: 56, height: 56, borderRadius: 18,
-    backgroundColor: BRAND_LIGHT,
-    alignItems: "center", justifyContent: "center",
-    marginBottom: 4,
-  },
-  emptyTitle: { fontSize: 15, fontWeight: "900", color: NAVY },
-  emptyDesc:  { fontSize: 13, color: MUTED, textAlign: "center", lineHeight: 20 },
-  emptyBtn:   { marginTop: 4, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: BRAND_LIGHT },
+  emptyState:   { alignItems: "center", borderWidth: 1.5, borderStyle: "dashed", borderRadius: 20, padding: 24, gap: 8, marginTop: 12 },
+  emptyIcon:    { width: 56, height: 56, borderRadius: 18, backgroundColor: BRAND_LIGHT, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  emptyTitle:   { fontSize: 15, fontWeight: "900", color: NAVY },
+  emptyDesc:    { fontSize: 13, color: MUTED, textAlign: "center", lineHeight: 20 },
+  emptyBtn:     { marginTop: 4, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: BRAND_LIGHT },
   emptyBtnText: { fontSize: 12, fontWeight: "800", color: BRAND_BLUE },
 
-  // Section card (abas Código e Criar)
-  tabContent:   { padding: 16, gap: 12, paddingBottom: 40 },
-  sectionCard:  { borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: BORDER },
-  sectionStrip: { height: 4 },
-  sectionBody:  { padding: 16, gap: 12 },
+  tabContent:    { padding: 16, gap: 12, paddingBottom: 40 },
+  sectionCard:   { borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: BORDER },
+  sectionStrip:  { height: 4 },
+  sectionBody:   { padding: 16, gap: 12 },
   sectionHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   sectionIcon:   { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   sectionTitle:  { fontSize: 16, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
   sectionDesc:   { fontSize: 12, color: MUTED, marginTop: 3, lineHeight: 18 },
   divider:       { height: 1, marginVertical: 4 },
 
-  // Info badge
-  infoBadge: {
-    flexDirection: "row", alignItems: "flex-start", gap: 7,
-    backgroundColor: BRAND_LIGHT, borderRadius: 12, padding: 10,
-  },
+  infoBadge:     { flexDirection: "row", alignItems: "flex-start", gap: 7, backgroundColor: BRAND_LIGHT, borderRadius: 12, padding: 10 },
   infoBadgeText: { flex: 1, fontSize: 11.5, color: BRAND_BLUE, lineHeight: 17, fontWeight: "600" },
 
-  // Info row
-  infoRow: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    backgroundColor: "#fff", borderRadius: 14, padding: 12,
-    borderWidth: 1, borderColor: BORDER,
-  },
+  infoRow:   { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#fff", borderRadius: 14, padding: 12, borderWidth: 1, borderColor: BORDER },
   infoIcon:  { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   infoLabel: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5, color: MUTED },
   infoValue: { fontSize: 13, fontWeight: "600", color: NAVY, marginTop: 1 },
 
-  // City row
   cityRow: { flexDirection: "row", gap: 10 },
 
-  // Primary button
   primaryBtn:     { borderRadius: 16, paddingVertical: 13, alignItems: "center", justifyContent: "center", marginTop: 4 },
   primaryBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
 
-  // Text button
   textBtn:      { alignItems: "center", paddingVertical: 8, borderRadius: 12 },
   textBtnLabel: { fontSize: 13, fontWeight: "700", color: BRAND_BLUE },
 
-  // Helpers
   row:        { flexDirection: "row", alignItems: "center" },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   rowWrap:    { flexDirection: "row", flexWrap: "wrap", gap: 8 },
