@@ -1,16 +1,20 @@
+// src/navigation/stacks/EventsStack.jsx
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useTerms } from "../../context/TerminologyContext";
 
-import EventsManageScreen from "../../screens/admin/EventsManageScreen";
-import EventComposerScreen from "../../screens/admin/EventComposerScreen";
-import EventsCreateScreen from "../../screens/admin/EventsCreateScreen";
+import EventsManageScreen         from "../../screens/admin/EventsManageScreen";
+import EventComposerScreen        from "../../screens/admin/EventComposerScreen";
+import EventsCreateScreen         from "../../screens/admin/EventsCreateScreen";
 import EventsSelectMinistryScreen from "../../screens/admin/EventsSelectMinistryScreen";
-import EventsSelectPeopleScreen from "../../screens/admin/EventsSelectPeopleScreen";
-import EventsPreviewScreen from "../../screens/admin/EventsPreviewScreen"; // ← só este
+import EventsSelectPeopleScreen   from "../../screens/admin/EventsSelectPeopleScreen";
+import EventsPreviewScreen        from "../../screens/admin/EventsPreviewScreen";
 
 const Stack = createNativeStackNavigator();
 
 export default function EventsStack() {
+  const { t } = useTerms();
+
   return (
     <Stack.Navigator>
       <Stack.Screen
@@ -26,12 +30,12 @@ export default function EventsStack() {
       <Stack.Screen
         name="EventsCreate"
         component={EventsCreateScreen}
-        options={{ title: "Criar escala" }}
+        options={{ title: `Criar ${t.schedule}` }}        // "Criar Escala" | "Criar Serviço"
       />
       <Stack.Screen
         name="EventsSelectMinistry"
         component={EventsSelectMinistryScreen}
-        options={{ title: "Ministério" }}
+        options={{ title: t.ministry }}                   // "Ministério" | "Departamento"
       />
       <Stack.Screen
         name="EventsSelectPeople"

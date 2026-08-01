@@ -1,14 +1,16 @@
+// src/navigation/RootNavigator.jsx
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
+import { TerminologyProvider } from "../context/TerminologyContext";
 
-import LoginScreen from "../screens/auth/LoginScreen";
-import RegisterScreen from "../screens/auth/RegisterScreen";
+import LoginScreen          from "../screens/auth/LoginScreen";
+import RegisterScreen       from "../screens/auth/RegisterScreen";
 import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
 
-import AppTabs from "./AppTabs";
-import ChurchOnboardingStack from "./stacks/ChurchOnboardingStack"; // 👈 novo
+import AppTabs               from "./AppTabs";
+import ChurchOnboardingStack from "./stacks/ChurchOnboardingStack";
 
 const Stack = createNativeStackNavigator();
 
@@ -22,11 +24,10 @@ function Loading() {
 
 export default function RootNavigator() {
   const { initializing, user, churchStatus } = useAuth();
-  // churchStatus: "checking" | "needs_church" | "pending" | "ready"
 
   if (initializing || (user && churchStatus === "checking")) return <Loading />;
 
-  // 🔒 Logado, mas sem igreja vinculada (ou pendente)
+  // 🔒 Logado, mas sem igreja vinculada ou pendente — sem terminologia ainda
   if (user && churchStatus !== "ready") {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -35,15 +36,17 @@ export default function RootNavigator() {
     );
   }
 
-  // ✅ Logado e liberado
+  // ✅ Logado e liberado — TerminologyProvider carrega os termos da igreja ativa
   return user ? (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="App" component={AppTabs} />
-    </Stack.Navigator>
+    <TerminologyProvider>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="App" component={AppTabs} />
+      </Stack.Navigator>
+    </TerminologyProvider>
   ) : (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="Login"          component={LoginScreen}          />
+      <Stack.Screen name="Register"       component={RegisterScreen}       />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </Stack.Navigator>
   );

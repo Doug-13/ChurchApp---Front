@@ -217,282 +217,279 @@
 //   );
 // }
 
+
 // src/navigation/AppTabs.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+
+import React, { useEffect, useMemo } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { StackActions } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useTheme } from "react-native-paper";
-import { getAuth, getIdToken } from "@react-native-firebase/auth";
-import { useAuth } from "../context/AuthContext";
-import { normalizeRole } from "../utils/permissions";
-import { API_BASE_URL } from "../config/api";
 
-import HomeStack          from "./stacks/HomeStack";
-import NewsStack          from "./stacks/NewsStack";
-import SchedulesStack     from "./stacks/SchedulesStack";
-import CellsStack         from "./stacks/CellsStack";
-import MoreStack          from "./stacks/MoreStack";
-import EventsStack        from "./stacks/EventsStack";
-import AdminStack         from "./stacks/AdminStack";
-import NotificationsStack from "./stacks/NotificationsStack";
+import { useAuth } from "../context/AuthContext";
+import { useTerms } from "../context/TerminologyContext";
+import { getPermissions, ROLES } from "../utils/permissions";
+
+import HomeStack from "./stacks/HomeStack";
+import NewsStack from "./stacks/NewsStack";
+import SchedulesStack from "./stacks/SchedulesStack";
+import CellsStack from "./stacks/CellsStack";
+import MoreStack from "./stacks/MoreStack";
+import EventsStack from "./stacks/EventsStack";
+import AdminStack from "./stacks/AdminStack";
 
 const Tab = createBottomTabNavigator();
 
-// ─── Hook: contagem de notificações não lidas ─────────────────────────────────
-
-function useUnreadCount(isReady) {
-  const [count, setCount] = useState(0);
+// ─── Componente redirect — ao ser montado navega para Notifications no HomeTab ──
+// Usado como tela fantasma da NotificationsTab para que a rota exista no navigator
+// sem ocupar espaço na tab bar.
+function NotificationsRedirect() {
+  const navigation = useNavigation();
 
   useEffect(() => {
-    if (!isReady) return;
+    // Navega para a tela Notifications que está dentro do HomeStack
+    const timer = setTimeout(() => {
+      navigation.navigate("HomeTab", { screen: "Notifications" });
+    }, 0);
 
-    async function fetchCount() {
-      try {
-        const fbUser = getAuth().currentUser;
-        if (!fbUser) return;
-        const token = await getIdToken(fbUser, false);
-        const res = await global.fetch(`${API_BASE_URL}/notifications/unread-count`, {
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        setCount(data?.count ?? 0);
-      } catch { /* silencioso */ }
-    }
+    return () => clearTimeout(timer);
+  }, [navigation]);
 
-    fetchCount();
-    const id = setInterval(fetchCount, 60_000);
-    return () => clearInterval(id);
-  }, [isReady]);
-
-  return count;
+  return null;
 }
 
-// ─── Listener: reseta o stack ao tocar na tab ativa ──────────────────────────
+const TAB_INITIAL_ROUTES = {
+  HomeTab: "Home",
+  NewsTab: "NewsFeed",
+  Events: "EventsList",
+  SchedulesTab: "MySchedules",
+  CellsTab: "CellsList",
+  AdminTab: "AdminDashboard",
+  MoreTab: "MoreHome",
+};
 
-function popToTopListener(navigation) {
-  return {
+function makeTabListeners(tabName) {
+  return ({ navigation }) => ({
     tabPress: (e) => {
-      if (navigation.isFocused()) {
-        e.preventDefault();
-        navigation.dispatch(StackActions.popToTop());
-      }
+      e.preventDefault();
+
+      const initialRoute = TAB_INITIAL_ROUTES[tabName];
+
+      navigation.dispatch(
+        CommonActions.navigate({
+          name: tabName,
+          params: {},
+        })
+      );
+
+      requestAnimationFrame(() => {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: tabName,
+                state: {
+                  index: 0,
+                  routes: [{ name: initialRoute }],
+                },
+              },
+            ],
+          })
+        );
+      });
     },
-  };
+  });
 }
-
-// ─── Ícones por tab ───────────────────────────────────────────────────────────
-
-function getTabIcon(routeName, focused) {
-  const map = {
-    HomeTab:          focused ? "home"          : "home-outline",
-    NewsTab:          focused ? "newspaper"     : "newspaper-outline",
-    Events:           focused ? "calendar"      : "calendar-outline",
-    NotificationsTab: focused ? "notifications" : "notifications-outline",
-    SchedulesTab:     focused ? "calendar"      : "calendar-outline",
-    CellsTab:         focused ? "people"        : "people-outline",
-    AdminTab:         focused ? "settings"      : "settings-outline",
-    MoreTab:          focused ? "menu"          : "menu-outline",
-  };
-  return map[routeName] || "ellipse-outline";
-}
-
-// ─── AppTabs ──────────────────────────────────────────────────────────────────
-//
-// Visibilidade de tabs por role:
-//   MEMBER  → Início | Avisos | Eventos | Notificações | Mais
-//   LEADER  → + Células | Admin
-//   ADMIN   → + Escalas | Células | Admin
-//   OWNER   → + Escalas | Células | Admin
-//
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function AppTabs() {
   const theme = useTheme();
+  const auth = useAuth();
+  const { t } = useTerms();
 
-  const {
-    role,
-    permissions,
-    isOwner,
-    isAdmin,
-    isLeader,
-    churchStatus,
-    can,
-  } = useAuth();
+  /**
+   * Compatibilidade com diferentes formatos do AuthContext.
+   *
+   * Em alguns pontos do app, o role pode vir como:
+   * - auth.myRole
+   * - auth.role
+   * - auth.user.role
+   * - auth.user.myRole
+   * - auth.currentChurch.myRole
+   * - auth.selectedChurch.myRole
+   *
+   * Caso nenhum role venha no contexto, usamos:
+   * - ADMIN se auth.isAdmin for true
+   * - MEMBER como padrão
+   *
+   * Isso evita quebrar o app e permite que membros novos vejam a aba Células,
+   * desde que o permissions.js tenha canAccessCells: true para MEMBER.
+   */
+  const currentRole = useMemo(() => {
+    if (auth?.myRole) return auth.myRole;
+    if (auth?.role) return auth.role;
+    if (auth?.user?.myRole) return auth.user.myRole;
+    if (auth?.user?.role) return auth.user.role;
+    if (auth?.currentChurch?.myRole) return auth.currentChurch.myRole;
+    if (auth?.selectedChurch?.myRole) return auth.selectedChurch.myRole;
 
-  const isReady = churchStatus === "ready";
-  const unreadCount = useUnreadCount(isReady);
+    if (auth?.isAdmin) return ROLES.ADMIN;
 
-  const access = useMemo(() => {
-    const safeRole = normalizeRole(role);
+    return ROLES.MEMBER;
+  }, [
+    auth?.myRole,
+    auth?.role,
+    auth?.user?.myRole,
+    auth?.user?.role,
+    auth?.currentChurch?.myRole,
+    auth?.selectedChurch?.myRole,
+    auth?.isAdmin,
+  ]);
 
-    const ownerAccess = isOwner || safeRole === "OWNER";
+  /**
+   * Compatibilidade com extraPermissions.
+   *
+   * Caso futuramente o usuário tenha permissões específicas no banco,
+   * elas serão aplicadas por cima das permissões padrão do role.
+   */
+  const extraPermissions = useMemo(() => {
+    if (auth?.extraPermissions) return auth.extraPermissions;
+    if (auth?.user?.extraPermissions) return auth.user.extraPermissions;
+    if (auth?.currentChurch?.extraPermissions) return auth.currentChurch.extraPermissions;
+    if (auth?.selectedChurch?.extraPermissions) return auth.selectedChurch.extraPermissions;
 
-    const adminAccess =
-      ownerAccess ||
-      isAdmin ||
-      safeRole === "ADMIN" ||
-      !!permissions?.isAdmin;
+    return {};
+  }, [
+    auth?.extraPermissions,
+    auth?.user?.extraPermissions,
+    auth?.currentChurch?.extraPermissions,
+    auth?.selectedChurch?.extraPermissions,
+  ]);
 
-    const leaderAccess =
-      adminAccess ||
-      isLeader ||
-      safeRole === "LEADER" ||
-      !!permissions?.isLeader;
-
-    return {
-      safeRole,
-      canAccessSchedules:
-        ownerAccess ||
-        adminAccess ||
-        can?.("canAccessSchedules") ||
-        can?.("canManageSchedules"),
-
-      canAccessCells:
-        ownerAccess ||
-        leaderAccess ||
-        can?.("canAccessCells") ||
-        can?.("canManageCells"),
-
-      canAccessAdmin:
-        ownerAccess ||
-        leaderAccess ||
-        can?.("canAccessAdmin"),
-    };
-  }, [role, permissions, isOwner, isAdmin, isLeader, can]);
-
-  if (__DEV__) {
-    console.log("[AppTabs] acessos calculados:", {
-      role,
-      safeRole: access.safeRole,
-      churchStatus,
-      isOwner,
-      isAdmin,
-      isLeader,
-      canAccessSchedules: access.canAccessSchedules,
-      canAccessCells:     access.canAccessCells,
-      canAccessAdmin:     access.canAccessAdmin,
-    });
-  }
+  const perms = useMemo(() => {
+    return getPermissions(currentRole, extraPermissions);
+  }, [currentRole, extraPermissions]);
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor:   theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+        tabBarActiveTintColor: theme.colors.primary,
         tabBarStyle: {
-          height:        64,
+          height: 64,
           paddingBottom: 10,
-          paddingTop:    8,
+          paddingTop: 8,
         },
         tabBarIcon: ({ focused, color, size }) => {
-          const iconName = getTabIcon(route.name, focused);
+          const map = {
+            HomeTab: focused ? "home" : "home-outline",
+            NewsTab: focused ? "newspaper" : "newspaper-outline",
+            Events: focused ? "calendar" : "calendar-outline",
+            SchedulesTab: focused ? "calendar" : "calendar-outline",
+            CellsTab: focused ? "people" : "people-outline",
+            AdminTab: focused ? "settings" : "settings-outline",
+            MoreTab: focused ? "menu" : "menu-outline",
+          };
 
-          // Badge de notificações não lidas
-          if (route.name === "NotificationsTab" && unreadCount > 0) {
-            return (
-              <View style={{ width: size, height: size }}>
-                <Ionicons name={iconName} size={size} color={color} />
-                <View style={{
-                  position:          "absolute",
-                  top:               -3,
-                  right:             -5,
-                  backgroundColor:   "#E84D4D",
-                  borderRadius:      9,
-                  minWidth:          16,
-                  height:            16,
-                  alignItems:        "center",
-                  justifyContent:    "center",
-                  paddingHorizontal: 2,
-                  borderWidth:       1.5,
-                  borderColor:       "#fff",
-                }} />
-              </View>
-            );
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return (
+            <Ionicons
+              name={map[route.name] || "ellipse-outline"}
+              size={size}
+              color={color}
+            />
+          );
         },
-        tabBarBadge:
-          route.name === "NotificationsTab" && unreadCount > 0
-            ? unreadCount > 99 ? "99+" : unreadCount
-            : undefined,
       })}
     >
-      {/* ── Sempre visíveis — todos os roles ── */}
       <Tab.Screen
         name="HomeTab"
         component={HomeStack}
-        options={{ title: "Início", headerShown: false }}
-        listeners={({ navigation }) => popToTopListener(navigation)}
+        options={{
+          title: "Início",
+          headerShown: false,
+        }}
+        listeners={makeTabListeners("HomeTab")}
       />
 
       <Tab.Screen
         name="NewsTab"
         component={NewsStack}
-        options={{ title: "Avisos", headerShown: false }}
-        listeners={({ navigation }) => popToTopListener(navigation)}
+        options={{
+          title: t.news,
+          headerShown: false,
+        }}
+        listeners={makeTabListeners("NewsTab")}
       />
 
       <Tab.Screen
         name="Events"
         component={EventsStack}
-        options={{ title: "Eventos", headerShown: false }}
-        listeners={({ navigation }) => popToTopListener(navigation)}
+        options={{
+          title: "Eventos",
+          headerShown: false,
+        }}
+        listeners={makeTabListeners("Events")}
       />
 
-      {/* ── Notificações — tab oculta, acessada pelo sino no hero ──
-      <Tab.Screen
-        name="NotificationsTab"
-        component={NotificationsStack}
-        options={{
-          title: "Notificações",
-          headerShown: false,
-          tabBarButton: () => null,   // oculta da barra inferior
-          tabBarStyle: { display: "none" },
-        }}
-        listeners={({ navigation }) => popToTopListener(navigation)}
-      /> */}
-
-      {/* ── Escalas: ADMIN e OWNER ── */}
-      {access.canAccessSchedules && (
+      {perms?.canAccessSchedules && (
         <Tab.Screen
           name="SchedulesTab"
           component={SchedulesStack}
-          options={{ title: "Escalas", headerShown: false }}
-          listeners={({ navigation }) => popToTopListener(navigation)}
+          options={{
+            title: `${t.schedule}s`,
+            headerShown: false,
+          }}
+          listeners={makeTabListeners("SchedulesTab")}
         />
       )}
 
-      {/* ── Células: LEADER, ADMIN e OWNER ── */}
-      {access.canAccessCells && (
+      {perms?.canAccessCells && (
         <Tab.Screen
           name="CellsTab"
           component={CellsStack}
-          options={{ title: "Células", headerShown: false }}
-          listeners={({ navigation }) => popToTopListener(navigation)}
+          options={{
+            title: t.cell,
+            headerShown: false,
+          }}
+          listeners={makeTabListeners("CellsTab")}
         />
       )}
 
-      {/* ── Admin: LEADER (painel reduzido), ADMIN e OWNER ── */}
-      {access.canAccessAdmin && (
+      {perms?.canAccessAdmin && (
         <Tab.Screen
           name="AdminTab"
           component={AdminStack}
-          options={{ title: "Admin", headerShown: false }}
-          listeners={({ navigation }) => popToTopListener(navigation)}
+          options={{
+            title: "Admin",
+            headerShown: false,
+          }}
+          listeners={makeTabListeners("AdminTab")}
         />
       )}
 
-      {/* ── Sempre visível ── */}
+      {/*
+        NotificationsTab — rota registrada para que navigation.navigate("NotificationsTab")
+        não lance erro. O componente NotificationsRedirect redireciona imediatamente para
+        a tela Notifications dentro do HomeStack. tabBarButton: () => null com
+        tabBarItemStyle: { display: "none" } garante que nenhum espaço apareça na barra.
+      */}
+      {/* <Tab.Screen
+        name="NotificationsTab"
+        component={NotificationsRedirect}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: "none" },
+        }}
+      /> */}
+
       <Tab.Screen
         name="MoreTab"
         component={MoreStack}
-        options={{ title: "Mais", headerShown: false }}
-        listeners={({ navigation }) => popToTopListener(navigation)}
+        options={{
+          title: "Mais",
+          headerShown: false,
+        }}
+        listeners={makeTabListeners("MoreTab")}
       />
     </Tab.Navigator>
   );

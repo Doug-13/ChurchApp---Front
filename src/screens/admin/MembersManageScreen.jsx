@@ -538,7 +538,7 @@ export default function MembersManageScreen({ navigation }) {
                     </Text>
                   </View>
 
-                  <TouchableRipple
+                  {/* <TouchableRipple
                     onPress={() => navigation.navigate("MemberForm")}
                     borderless
                     style={styles.heroAddBtn}
@@ -547,7 +547,7 @@ export default function MembersManageScreen({ navigation }) {
                       <Icon source="plus" size={16} color={NAVY} />
                       <Text style={styles.heroAddBtnText}>Novo</Text>
                     </View>
-                  </TouchableRipple>
+                  </TouchableRipple> */}
                 </View>
 
                 <View style={styles.heroPills}>

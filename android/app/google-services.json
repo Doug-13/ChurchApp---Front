@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:440979098012:android:691e5c7728b84076d62059",
+        "android_client_info": {
+          "package_name": "br.churchapp.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBq8fMuKWC5XnMsWFPalCjKYTQm1dhyqK0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:440979098012:android:c54f3149d06d7e69d62059",
         "android_client_info": {
           "package_name": "com.churchapp"

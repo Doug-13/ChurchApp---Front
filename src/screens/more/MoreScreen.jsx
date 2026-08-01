@@ -15,13 +15,15 @@ import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 
 // ─── Design tokens — alinhados ao Design Manual ───────────────────────────────
-const NAVY = "#1A2366";
-const BRAND = "#4158D0";
+const NAVY        = "#1A2366";
+const BRAND       = "#4158D0";
 const BRAND_LIGHT = "#EEF0FA";
-const SUCCESS = "#2DBF8A";
-const SUCCESS_BG = "#E8F9F3";
-const MUTED = "#9198B5";
-const BORDER = "#E4E6F0";
+const SUCCESS     = "#2DBF8A";
+const SUCCESS_BG  = "#E8F9F3";
+const MUTED       = "#9198B5";
+const BORDER      = "#E4E6F0";
+const PURPLE      = "#7B61FF";
+const PURPLE_BG   = "#F3F0FF";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -101,24 +103,20 @@ function InfoCard({ children, style }) {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
-
 export default function MoreScreen({ navigation }) {
   const theme = useTheme();
-  // ✅ Usa isAdmin e activeChurchId do AuthContext — sem chamar /users/me de novo
   const { me, signOut, isAdmin, activeChurchId } = useAuth();
 
   const [church, setChurch] = useState(null);
   const [myRole, setMyRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const userPhotoUrl = resolveImageUrl(me, "photoUrl", "avatarUrl", "imageUrl", "photo");
+  const userPhotoUrl  = resolveImageUrl(me, "photoUrl", "avatarUrl", "imageUrl", "photo");
   const churchLogoUrl = resolveImageUrl(church, "logoUrl", "photoUrl", "imageUrl");
 
-  const userName = me?.name || me?.displayName || "Minha conta";
+  const userName  = me?.name || me?.displayName || "Minha conta";
   const userEmail = me?.email || "—";
 
-  // ✅ Usa isAdmin do contexto em vez de canManageChurch(myRole) local
   const isManager = isAdmin;
 
   useEffect(() => {
@@ -129,7 +127,6 @@ export default function MoreScreen({ navigation }) {
         const mine = await authFetch("/churches/mine");
         if (!alive) return;
 
-        // ✅ Usa activeChurchId do contexto
         const selected =
           (activeChurchId && Array.isArray(mine) && mine.find((c) => c.id === activeChurchId)) ||
           mine?.[0] || null;
@@ -147,9 +144,7 @@ export default function MoreScreen({ navigation }) {
       }
     })();
     return () => { alive = false; };
-  }, [activeChurchId]); // ✅ recarrega se a igreja ativa mudar
-
-  // ... resto do JSX igual, sem nenhuma outra mudança
+  }, [activeChurchId]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
@@ -157,10 +152,8 @@ export default function MoreScreen({ navigation }) {
 
         {/* ── Header: perfil do usuário ────────────────────────────────── */}
         <Surface elevation={0} style={styles.profileCard}>
-          {/* Faixa navy no topo */}
           <View style={styles.profileTop}>
             <View style={styles.profileNavyStrip} />
-            {/* Avatar */}
             <View style={styles.profileAvatarWrap}>
               {userPhotoUrl ? (
                 <Image source={{ uri: userPhotoUrl }} style={styles.profileAvatar} resizeMode="cover" />
@@ -178,7 +171,6 @@ export default function MoreScreen({ navigation }) {
             <Text style={styles.profileName}>{userName}</Text>
             <Text style={styles.profileEmail}>{userEmail}</Text>
 
-            {/* Pills: role + status */}
             <View style={styles.profilePills}>
               {!!myRole && (
                 <View style={[styles.profilePill, { backgroundColor: BRAND_LIGHT }]}>
@@ -212,7 +204,6 @@ export default function MoreScreen({ navigation }) {
           <>
             <SectionLabel title="MINHA IGREJA" />
             <InfoCard>
-              {/* Header da igreja */}
               <TouchableRipple
                 onPress={() => navigation.navigate("ChurchProfile")}
                 style={styles.churchHeader}
@@ -241,30 +232,6 @@ export default function MoreScreen({ navigation }) {
               </TouchableRipple>
 
               <Divider style={{ backgroundColor: BORDER }} />
-
-              {/* Perfil da Igreja — visível para todos */}
-              {/* <MenuRow
-                icon="church"
-                iconColor={BRAND}
-                iconBg={BRAND_LIGHT}
-                title="Perfil da Igreja"
-                description="Sobre, horários, redes sociais"
-                onPress={() => navigation.navigate("ChurchProfile")}
-                showDivider={isManager}
-                last={!isManager}
-              />
-
-              {isManager && (
-                <MenuRow
-                  icon="pencil-outline"
-                  iconColor="#F5A623"
-                  iconBg="#FEF5E7"
-                  title="Editar dados da Igreja"
-                  description="Nome, endereço, horários e logo"
-                  onPress={() => navigation.navigate("ChurchEdit")}
-                  last
-                />
-              )} */}
             </InfoCard>
           </>
         )}
@@ -292,30 +259,7 @@ export default function MoreScreen({ navigation }) {
         </InfoCard>
 
         {/* ── Administração — só OWNER/ADMIN ────────────────────────────── */}
-        {isManager && (
-          <>
-            <SectionLabel title="ADMINISTRAÇÃO" />
-            <InfoCard>
-              <MenuRow
-                icon="shield-account-outline"
-                iconColor="#7B61FF"
-                iconBg="#F3F0FF"
-                title="Painel Administrativo"
-                description="Dashboard, cadastros e permissões"
-                onPress={() => navigation.navigate("Admin", { screen: "AdminDashboard" })}
-              />
-              <MenuRow
-                icon="account-group-outline"
-                iconColor="#2DBF8A"
-                iconBg="#E8F9F3"
-                title="Gerenciar Membros"
-                description="Cadastrar, editar e permissões"
-                onPress={() => navigation.getParent?.()?.navigate("HomeTab", { screen: "Directory" })}
-                last
-              />
-            </InfoCard>
-          </>
-        )}
+       
 
         {/* ── Ajuda ────────────────────────────────────────────────────── */}
         <SectionLabel title="AJUDA" />
@@ -363,7 +307,7 @@ export default function MoreScreen({ navigation }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root:      { flex: 1 },
   container: { padding: 16, paddingBottom: 32, gap: 0 },
 
   sectionLabel: {

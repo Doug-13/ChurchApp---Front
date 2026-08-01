@@ -20,22 +20,22 @@ import { useIsFocused } from "@react-navigation/native";
 import { getAuth } from "@react-native-firebase/auth";
 import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
+import { useTerms } from "../../context/TerminologyContext";
 
 // ─── Design System (conforme manual) ────────────────────────────────────────
-const NAVY        = "#1A2366";
-const BRAND       = "#4158D0";
-const BRAND_LIGHT = "#EEF0FA";
-const BG          = "#F5F6FA";
-const SURFACE     = "#FFFFFF";
-const BORDER      = "#E4E6F0";
-const MUTED       = "#9198B5";
-const SUCCESS     = "#2DBF8A";
-const SUCCESS_LIGHT  = "#E8F9F3";
-const DANGER      = "#E84D4D";
-const DANGER_LIGHT   = "#FEECEC";
+const NAVY         = "#1A2366";
+const BRAND        = "#4158D0";
+const BRAND_LIGHT  = "#EEF0FA";
+const BG           = "#F5F6FA";
+const SURFACE      = "#FFFFFF";
+const BORDER       = "#E4E6F0";
+const MUTED        = "#9198B5";
+const SUCCESS      = "#2DBF8A";
+const SUCCESS_LIGHT = "#E8F9F3";
+const DANGER       = "#E84D4D";
+const DANGER_LIGHT  = "#FEECEC";
 
 // ─── Permissão de edição ──────────────────────────────────────────────────────
-// Apenas OWNER e ADMIN podem criar/editar células
 function canEditCells(role) {
   const r = String(role || "").toUpperCase();
   return r === "OWNER" || r === "ADMIN";
@@ -127,7 +127,7 @@ function Pill({ icon, label, bg, color }) {
   );
 }
 
-function CellCard({ item, onPress }) {
+function CellCard({ item, onPress, t }) {
   const accent      = item.templateColor || BRAND;
   const accentLight = accent + "18";
   const meeting     = formatMeeting(item.meetingDay, item.meetingTime);
@@ -171,14 +171,14 @@ function CellCard({ item, onPress }) {
               <Pill icon="calendar-clock" label={meeting} bg={BRAND_LIGHT} color={BRAND} />
             )}
             <Pill
-              icon="account"
-              label={item.leaderName || "Sem líder"}
+              icon="account-star-outline"
+              label={item.leaderName || `Sem ${t.cellLeader.toLowerCase()}`}  // "Sem Anfitrião"
               bg={BRAND_LIGHT}
               color={NAVY}
             />
             <Pill
               icon="account-multiple"
-              label={`${item.membersCount} membros`}
+              label={`${item.membersCount} ${t.member.toLowerCase()}s`}       // "3 congregados"
               bg={BRAND_LIGHT}
               color={NAVY}
             />
@@ -196,9 +196,9 @@ function CellCard({ item, onPress }) {
 export default function CellsManageScreen({ navigation }) {
   const authCtx   = useAuth();
   const isFocused = useIsFocused();
+  const { t }     = useTerms();
 
-  // Role do usuário para controle de permissões
-  const myRole = authCtx?.myRole || authCtx?.me?.role || authCtx?.role || null;
+  const myRole  = authCtx?.myRole || authCtx?.me?.role || authCtx?.role || null;
   const canEdit = canEditCells(myRole);
 
   const churchId =
@@ -214,10 +214,6 @@ export default function CellsManageScreen({ navigation }) {
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error,      setError]      = useState("");
-
-  const tc = useMemo(() => ({
-    surface: SURFACE, bg: BG, outline: BORDER, text: NAVY, muted: MUTED, primary: BRAND,
-  }), []);
 
   const load = useCallback(async () => {
     if (!churchId) {
@@ -237,7 +233,7 @@ export default function CellsManageScreen({ navigation }) {
       });
       setCells(normalized);
     } catch (e) {
-      setError(e?.message || "Erro ao carregar células.");
+      setError(e?.message || `Erro ao carregar ${t.cell.toLowerCase()}.`);
     } finally {
       setLoading(false);
     }
@@ -263,6 +259,7 @@ export default function CellsManageScreen({ navigation }) {
 
   const totalActive   = cells.filter((c) =>  c.isActive).length;
   const totalInactive = cells.filter((c) => !c.isActive).length;
+  const totalMembers  = cells.reduce((s, c) => s + (c.membersCount || 0), 0);
 
   // ── Header da lista ────────────────────────────────────────────────────────
   const ListHeader = (
@@ -278,9 +275,10 @@ export default function CellsManageScreen({ navigation }) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.heroGreet}>Gestão de</Text>
-            <Text style={styles.heroTitle}>Células</Text>
+            {/* t.cell → "Grupos" | "Células" | "GPs" */}
+            <Text style={styles.heroTitle}>{t.cell}</Text>
             <Text style={styles.heroMeta}>
-              {cells.length} células • {totalActive} ativas
+              {cells.length} {t.cell.toLowerCase()} • {totalActive} ativas
             </Text>
           </View>
         </View>
@@ -298,14 +296,15 @@ export default function CellsManageScreen({ navigation }) {
           )}
           <View style={styles.heroPill}>
             <View style={[styles.pillDot, { backgroundColor: "#A8BFFF" }]} />
+            {/* t.member → "Membros" | "Congregados" */}
             <Text style={styles.heroPillText}>
-              {cells.reduce((s, c) => s + (c.membersCount || 0), 0)} membros
+              {totalMembers} {t.member.toLowerCase()}s
             </Text>
           </View>
         </View>
       </Surface>
 
-      {/* Ações rápidas — botão "Nova célula" só para OWNER/ADMIN */}
+      {/* Ações rápidas */}
       <View style={{ flexDirection: "row", gap: 10 }}>
         {canEdit && (
           <Button
@@ -316,7 +315,8 @@ export default function CellsManageScreen({ navigation }) {
             buttonColor={BRAND}
             textColor="#fff"
           >
-            Nova célula
+            {/* "Nova Grupo" | "Nova Célula" */}
+            Nova {t.cell}
           </Button>
         )}
         <Button
@@ -332,7 +332,7 @@ export default function CellsManageScreen({ navigation }) {
 
       {/* Busca */}
       <Searchbar
-        placeholder="Buscar célula, bairro, líder..."
+        placeholder={`Buscar ${t.cell.toLowerCase()}, bairro, ${t.cellLeader.toLowerCase()}...`}
         value={query}
         onChangeText={setQuery}
         style={styles.searchBar}
@@ -359,7 +359,8 @@ export default function CellsManageScreen({ navigation }) {
       {filtered.length > 0 && (
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            {query ? `Resultados (${filtered.length})` : "Todas as células"}
+            {/* "Resultados (3)" | "Todas as grupos" */}
+            {query ? `Resultados (${filtered.length})` : `Todas as ${t.cell.toLowerCase()}`}
           </Text>
           <View style={[styles.countBadge, { backgroundColor: BRAND_LIGHT }]}>
             <Text style={[styles.countBadgeText, { color: BRAND }]}>{filtered.length}</Text>
@@ -379,16 +380,18 @@ export default function CellsManageScreen({ navigation }) {
         style={{ marginBottom: 8 }}
       />
       <Text style={styles.emptyTitle}>
-        {query ? "Nenhuma célula encontrada" : "Nenhuma célula cadastrada"}
+        {/* "Nenhum Grupo encontrado" | "Nenhuma Célula cadastrada" */}
+        {query
+          ? `Nenhuma ${t.cell.toLowerCase()} encontrada`
+          : `Nenhuma ${t.cell.toLowerCase()} cadastrada`}
       </Text>
       <Text style={styles.mutedText}>
         {query
-          ? "Tente buscar por outro nome, bairro ou líder."
+          ? `Tente buscar por outro nome, bairro ou ${t.cellLeader.toLowerCase()}.`
           : canEdit
-            ? "Crie a primeira célula para começar a organizar líderes, membros e reuniões."
-            : "Nenhuma célula cadastrada ainda."}
+            ? `Crie a primeira ${t.cell.toLowerCase()} para começar a organizar ${t.cellLeader.toLowerCase()}s, ${t.member.toLowerCase()}s e ${t.cellMeeting.toLowerCase()}s.`
+            : `Nenhuma ${t.cell.toLowerCase()} cadastrada ainda.`}
       </Text>
-      {/* Botão criar só para quem tem permissão */}
       {!query && canEdit && (
         <Button
           mode="contained"
@@ -398,7 +401,7 @@ export default function CellsManageScreen({ navigation }) {
           buttonColor={BRAND}
           textColor="#fff"
         >
-          Nova célula
+          Nova {t.cell}
         </Button>
       )}
     </Surface>
@@ -409,7 +412,9 @@ export default function CellsManageScreen({ navigation }) {
     return (
       <View style={styles.loadingWrap}>
         <ActivityIndicator color={BRAND} size="large" />
-        <Text style={[styles.mutedText, { marginTop: 12 }]}>Carregando células...</Text>
+        <Text style={[styles.mutedText, { marginTop: 12 }]}>
+          Carregando {t.cell.toLowerCase()}...
+        </Text>
       </View>
     );
   }
@@ -422,6 +427,7 @@ export default function CellsManageScreen({ navigation }) {
         renderItem={({ item }) => (
           <CellCard
             item={item}
+            t={t}
             onPress={() => navigation?.navigate?.(ROUTES.details, { cellId: item.id })}
           />
         )}
@@ -450,7 +456,7 @@ const styles = StyleSheet.create({
   listContent: { padding: 16, paddingBottom: 32, gap: 12 },
   loadingWrap: { flex: 1, backgroundColor: BG, alignItems: "center", justifyContent: "center" },
 
-  // ── Hero (fundo NAVY fixo, conforme manual) ────────────────────────────────
+  // ── Hero ──────────────────────────────────────────────────────────────────
   heroCard: {
     backgroundColor: NAVY,
     borderRadius: 20,
@@ -464,17 +470,17 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.07)",
   },
-  heroTop:   { flexDirection: "row", alignItems: "center", gap: 12, zIndex: 2 },
-  heroAvatar:{
+  heroTop:    { flexDirection: "row", alignItems: "center", gap: 12, zIndex: 2 },
+  heroAvatar: {
     width: 48, height: 48,
     borderRadius: 16,
     alignItems: "center", justifyContent: "center",
   },
-  heroGreet: { fontSize: 11, fontWeight: "600", color: "rgba(255,255,255,0.65)" },
-  heroTitle: { fontSize: 22, fontWeight: "900", color: "#fff", letterSpacing: -0.6 },
-  heroMeta:  { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 },
-  heroPills: { flexDirection: "row", gap: 8, marginTop: 14, zIndex: 2 },
-  heroPill:  {
+  heroGreet:  { fontSize: 11, fontWeight: "600", color: "rgba(255,255,255,0.65)" },
+  heroTitle:  { fontSize: 22, fontWeight: "900", color: "#fff", letterSpacing: -0.6 },
+  heroMeta:   { fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 },
+  heroPills:  { flexDirection: "row", gap: 8, marginTop: 14, zIndex: 2 },
+  heroPill:   {
     flexDirection: "row", alignItems: "center", gap: 6,
     backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 999,
@@ -483,11 +489,11 @@ const styles = StyleSheet.create({
   pillDot:     { width: 6, height: 6, borderRadius: 999 },
   heroPillText:{ fontSize: 11, fontWeight: "700", color: "#fff" },
 
-  // ── Botões ─────────────────────────────────────────────────────────────────
-  btnContained:{ borderRadius: 999 },
-  btnOutline:  { borderRadius: 999, borderColor: BORDER },
+  // ── Botões ────────────────────────────────────────────────────────────────
+  btnContained: { borderRadius: 999 },
+  btnOutline:   { borderRadius: 999, borderColor: BORDER },
 
-  // ── Busca ──────────────────────────────────────────────────────────────────
+  // ── Busca ─────────────────────────────────────────────────────────────────
   searchBar: {
     borderRadius: 14,
     backgroundColor: SURFACE,
@@ -496,7 +502,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
 
-  // ── Erro ───────────────────────────────────────────────────────────────────
+  // ── Erro ──────────────────────────────────────────────────────────────────
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -507,26 +513,26 @@ const styles = StyleSheet.create({
     borderColor: DANGER,
     padding: 14,
   },
-  errorTitle:{ fontSize: 13, fontWeight: "900", color: NAVY },
-  retryBtn:  {
+  errorTitle: { fontSize: 13, fontWeight: "900", color: NAVY },
+  retryBtn:   {
     width: 36, height: 36,
     borderRadius: 999,
     backgroundColor: BRAND_LIGHT,
     alignItems: "center", justifyContent: "center",
   },
 
-  // ── Section header ─────────────────────────────────────────────────────────
+  // ── Section header ────────────────────────────────────────────────────────
   sectionHeader: {
     flexDirection: "row", alignItems: "center",
     justifyContent: "space-between",
     marginTop: 6, marginBottom: 0,
     paddingHorizontal: 2,
   },
-  sectionTitle:   { fontSize: 16, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
-  countBadge:     { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
-  countBadgeText: { fontSize: 12, fontWeight: "800" },
+  sectionTitle:    { fontSize: 16, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
+  countBadge:      { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
+  countBadgeText:  { fontSize: 12, fontWeight: "800" },
 
-  // ── Card de célula ─────────────────────────────────────────────────────────
+  // ── Card de célula ────────────────────────────────────────────────────────
   cellCard: {
     backgroundColor: SURFACE,
     borderRadius: 20,
@@ -546,19 +552,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center", justifyContent: "center",
   },
-  cellTitle:   { fontSize: 15, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
-  cellLocation:{ fontSize: 12, color: MUTED, marginTop: 3 },
+  cellTitle:    { fontSize: 15, fontWeight: "900", color: NAVY, letterSpacing: -0.3 },
+  cellLocation: { fontSize: 12, color: MUTED, marginTop: 3 },
 
-  // ── Meta row (pills) ───────────────────────────────────────────────────────
+  // ── Meta row (pills) ──────────────────────────────────────────────────────
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   pill:    {
     flexDirection: "row", alignItems: "center",
     borderRadius: 999,
     paddingHorizontal: 9, paddingVertical: 4,
   },
-  pillText:{ fontSize: 10, fontWeight: "800" },
+  pillText: { fontSize: 10, fontWeight: "800" },
 
-  // ── Empty state ────────────────────────────────────────────────────────────
+  // ── Empty state ───────────────────────────────────────────────────────────
   emptyCard: {
     alignItems: "center",
     borderWidth: 1.5,
@@ -570,8 +576,8 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE,
     marginTop: 8,
   },
-  emptyTitle:{ fontSize: 15, fontWeight: "900", color: NAVY, textAlign: "center" },
+  emptyTitle: { fontSize: 15, fontWeight: "900", color: NAVY, textAlign: "center" },
 
-  // ── Texto muted genérico ───────────────────────────────────────────────────
+  // ── Texto muted genérico ──────────────────────────────────────────────────
   mutedText: { fontSize: 13, color: MUTED, textAlign: "center", lineHeight: 20 },
 });

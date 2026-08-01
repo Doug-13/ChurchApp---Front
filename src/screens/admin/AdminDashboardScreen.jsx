@@ -9,6 +9,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   View,
 } from "react-native";
@@ -22,6 +23,7 @@ import {
 } from "react-native-paper";
 
 import { useAuth } from "../../context/AuthContext";
+import { useTerms } from "../../context/TerminologyContext";
 import { getPermissions, ROLE_META, normalizeRole } from "../../utils/permissions";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -34,6 +36,8 @@ const WARNING     = "#F5A623";
 const WARNING_BG  = "#FEF5E7";
 const DANGER      = "#E84D4D";
 const DANGER_BG   = "#FEECEC";
+const PURPLE      = "#7B61FF";
+const PURPLE_BG   = "#F3F0FF";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function toCount(value) {
@@ -118,7 +122,6 @@ function SectionHeader({ title, subtitle, actionLabel, onAction, tc }) {
   );
 }
 
-// MetricCard — ícone + label na mesma linha, valor em destaque abaixo
 function MetricCard({ label, value, icon, helper, color, bg, tc }) {
   return (
     <Surface elevation={1} style={[styles.metricCard, { backgroundColor: tc.surface, borderColor: tc.outline }]}>
@@ -136,17 +139,13 @@ function MetricCard({ label, value, icon, helper, color, bg, tc }) {
   );
 }
 
-// PendingItem — linha horizontal compacta, botão inline pequeno
 function PendingItem({ icon, title, description, helper, buttonLabel, onPress, color, bg, tc }) {
   return (
     <Surface elevation={1} style={[styles.pendingCard, { backgroundColor: tc.surface, borderColor: tc.outline }]}>
       <View style={styles.pendingRow}>
-        {/* Ícone */}
         <View style={[styles.pendingIconWrap, { backgroundColor: bg }]}>
           <Icon source={icon} size={18} color={color} />
         </View>
-
-        {/* Textos */}
         <View style={styles.pendingTexts}>
           <Text style={styles.pendingTitle} numberOfLines={1}>{title}</Text>
           <Text style={[styles.pendingDesc, { color: tc.muted }]} numberOfLines={1}>{description}</Text>
@@ -154,8 +153,6 @@ function PendingItem({ icon, title, description, helper, buttonLabel, onPress, c
             <Text style={[styles.pendingHelper, { color: tc.muted }]} numberOfLines={1}>{helper}</Text>
           )}
         </View>
-
-        {/* Botão — pequeno e alinhado à direita */}
         <TouchableRipple onPress={onPress} borderless style={[styles.pendingBtn, { backgroundColor: bg }]}>
           <Text style={[styles.pendingBtnText, { color }]}>{buttonLabel}</Text>
         </TouchableRipple>
@@ -164,7 +161,6 @@ function PendingItem({ icon, title, description, helper, buttonLabel, onPress, c
   );
 }
 
-// ShortcutCard — ícone + título na mesma linha, subtitle abaixo
 function ShortcutCard({ title, subtitle, icon, onPress, color, bg, tc }) {
   return (
     <TouchableRipple
@@ -173,7 +169,6 @@ function ShortcutCard({ title, subtitle, icon, onPress, color, bg, tc }) {
       style={[styles.shortcutCard, { backgroundColor: tc.surface, borderColor: tc.outline }]}
     >
       <View style={{ flex: 1 }}>
-        {/* Linha superior: ícone + título + chevron */}
         <View style={styles.shortcutTop}>
           <View style={[styles.shortcutIconWrap, { backgroundColor: bg }]}>
             <Icon source={icon} size={17} color={color} />
@@ -181,7 +176,6 @@ function ShortcutCard({ title, subtitle, icon, onPress, color, bg, tc }) {
           <Text style={styles.shortcutTitle} numberOfLines={1}>{title}</Text>
           <Icon source="chevron-right" size={15} color={tc.muted} />
         </View>
-        {/* Subtitle abaixo, com leve indentação */}
         <Text style={[styles.shortcutSubtitle, { color: tc.muted }]} numberOfLines={2}>
           {subtitle}
         </Text>
@@ -194,6 +188,7 @@ function ShortcutCard({ title, subtitle, icon, onPress, color, bg, tc }) {
 export default function AdminDashboardScreen({ navigation }) {
   const theme = useTheme();
   const { apiFetchAuth, activeChurchId } = useAuth();
+  const { t } = useTerms(); // ← termos personalizados da igreja
 
   const tc = useMemo(() => ({
     surface: theme.colors.surface,
@@ -219,12 +214,8 @@ export default function AdminDashboardScreen({ navigation }) {
       else setLoading(true);
       setErrorMessage("");
 
-      const cellsPath  = activeChurchId
-        ? `/cells?churchId=${encodeURIComponent(activeChurchId)}`
-        : null;
-      const eventsPath = activeChurchId
-        ? `/churches/${encodeURIComponent(activeChurchId)}/events`
-        : null;
+      const cellsPath  = activeChurchId ? `/cells?churchId=${encodeURIComponent(activeChurchId)}` : null;
+      const eventsPath = activeChurchId ? `/churches/${encodeURIComponent(activeChurchId)}/events` : null;
 
       const [mineData, dashboardData, membersData, cellsData, eventsData] =
         await Promise.all([
@@ -255,15 +246,14 @@ export default function AdminDashboardScreen({ navigation }) {
     return (
       <View style={[styles.loadingRoot, { backgroundColor: tc.bg }]}>
         <ActivityIndicator size="large" color={BRAND_BLUE} />
-        <Text style={[styles.loadingText, { color: tc.muted }]}>
-          Carregando painel...
-        </Text>
+        <Text style={[styles.loadingText, { color: tc.muted }]}>Carregando painel...</Text>
       </View>
     );
   }
 
   return (
     <View style={[styles.root, { backgroundColor: tc.bg }]}>
+      <StatusBar backgroundColor={NAVY} barStyle="light-content" />
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
@@ -307,8 +297,9 @@ export default function AdminDashboardScreen({ navigation }) {
           </View>
 
           <Text style={styles.heroTitle}>Painel da igreja</Text>
+          {/* t.member, t.cell usados na descrição do hero */}
           <Text style={styles.heroSubtitle}>
-            Membros, células, eventos e solicitações em um só lugar.
+            {`${t.member}s, ${t.cell.toLowerCase()}, eventos e solicitações em um só lugar.`}
           </Text>
 
           <View style={styles.heroPills}>
@@ -320,7 +311,7 @@ export default function AdminDashboardScreen({ navigation }) {
             />
             <StatusPill
               icon="account-group-outline"
-              label={`${formatNumber(stats.members)} membros`}
+              label={`${formatNumber(stats.members)} ${t.member.toLowerCase()}s`}
               color="#7EFFD4"
               bg="rgba(255,255,255,0.12)"
             />
@@ -328,78 +319,94 @@ export default function AdminDashboardScreen({ navigation }) {
         </View>
 
         {/* ── Gerenciar ────────────────────────────────────────────────── */}
-        <SectionHeader
-          title="Gerenciar"
-          subtitle="Ações rápidas do dia a dia"
-          tc={tc}
-        />
+        <SectionHeader title="Gerenciar" subtitle="Ações rápidas do dia a dia" tc={tc} />
 
         <View style={styles.shortcutsGrid}>
+          {/* t.member → "Membros" | "Congregados" */}
           {perms.canManageMembers && (
             <ShortcutCard
-              title="Membros" subtitle="Cadastrar, editar e permissões"
+              title={`${t.member}s`}
+              subtitle="Cadastrar, editar e permissões"
               icon="account-group-outline" color={BRAND_BLUE} bg={BRAND_LIGHT} tc={tc}
               onPress={() => navigation.navigate("MembersManage")}
             />
           )}
           {perms.canViewMembers && !perms.canManageMembers && (
             <ShortcutCard
-              title="Membros" subtitle="Visualizar lista de membros"
+              title={`${t.member}s`}
+              subtitle={`Visualizar lista de ${t.member.toLowerCase()}s`}
               icon="account-group-outline" color={BRAND_BLUE} bg={BRAND_LIGHT} tc={tc}
               onPress={() => navigation.navigate("MembersManage")}
             />
           )}
+
           {perms.canCreateEvent && (
             <ShortcutCard
               title="Eventos"
-              subtitle={perms.canDeleteEvent ? "Criar eventos e escalas" : "Criar e editar eventos"}
+              subtitle={perms.canDeleteEvent ? `Ver e criar eventos e ${t.schedule.toLowerCase()}s` : "Ver e criar eventos"}
               icon="calendar-star-outline" color={WARNING} bg={WARNING_BG} tc={tc}
-              onPress={() => navigation.navigate("EventComposerScreen")}
+              onPress={() => navigation.navigate("EventsManageScreen")}
             />
           )}
+
+          {/* t.cell → "Células" | "Grupos" | "GPs" */}
           {perms.canManageCells && (
             <ShortcutCard
-              title="Células" subtitle="Líderes e participantes"
+              title={t.cell}
+              subtitle={`${t.cellLeader}s e participantes`}
               icon="home-group" color={SUCCESS} bg={SUCCESS_BG} tc={tc}
               onPress={() => navigation.navigate("CellsManage")}
             />
           )}
           {perms.canRegisterMeeting && !perms.canManageCells && (
             <ShortcutCard
-              title="Minha Célula" subtitle="Reuniões e presença"
+              title={`Minha ${t.cell}`}
+              subtitle={`${t.cellMeeting}s e presença`}
               icon="home-group" color={SUCCESS} bg={SUCCESS_BG} tc={tc}
               onPress={() => navigation.navigate("CellsManage")}
             />
           )}
+
+          {/* t.ministry → "Ministérios" | "Departamentos" */}
           {perms.canManageMinistries && (
             <ShortcutCard
-              title="Ministérios" subtitle="Equipes e departamentos"
+              title={`${t.ministry}s`}
+              subtitle="Equipes e departamentos"
               icon="layers-outline" color={BRAND_BLUE} bg={BRAND_LIGHT} tc={tc}
               onPress={() => navigation.navigate("MinistriesManage")}
             />
           )}
           {perms.canViewMinistries && !perms.canManageMinistries && (
             <ShortcutCard
-              title="Ministérios" subtitle="Visualizar equipes"
+              title={`${t.ministry}s`}
+              subtitle="Visualizar equipes"
               icon="layers-outline" color={BRAND_BLUE} bg={BRAND_LIGHT} tc={tc}
               onPress={() => navigation.navigate("MinistriesManage")}
             />
           )}
+
+          {/* t.news → "Avisos" | "Informes" */}
           {perms.canPublishNews && (
             <ShortcutCard
-              title="Publicar aviso"
-              subtitle={perms.canDeleteNews ? "Avisos e novidades" : "Criar avisos"}
+              title={t.news}
+              subtitle={perms.canDeleteNews ? `Gerenciar ${t.news.toLowerCase()}` : `Ver ${t.news.toLowerCase()}`}
               icon="bullhorn-outline" color={WARNING} bg={WARNING_BG} tc={tc}
-              onPress={() => navigation.navigate("NewsComposer")}
+              onPress={() => {
+                const parent = navigation.getParent?.();
+                (parent || navigation).navigate("NewsTab", { screen: "NewsFeed" });
+              }}
             />
           )}
+
           {perms.canViewBirthdays && (
             <ShortcutCard
-              title="Aniversariantes" subtitle="Celebre os membros"
+              title="Aniversariantes"
+              subtitle={`Celebre os ${t.member.toLowerCase()}s`}
               icon="cake-variant-outline" color={SUCCESS} bg={SUCCESS_BG} tc={tc}
               onPress={() => navigation.navigate("Birthdays")}
             />
           )}
+
           {perms.canViewReports && (
             <ShortcutCard
               title="Relatórios" subtitle="Indicadores e histórico"
@@ -407,6 +414,7 @@ export default function AdminDashboardScreen({ navigation }) {
               onPress={() => navigation.navigate("Reports")}
             />
           )}
+
           {perms.canManageChurchProfile && (
             <ShortcutCard
               title="Perfil da Igreja" subtitle="Editar dados e imagem"
@@ -414,26 +422,32 @@ export default function AdminDashboardScreen({ navigation }) {
               onPress={() => navigation.navigate("ChurchProfile")}
             />
           )}
+
+          {perms.canManageChurchProfile && (
+            <ShortcutCard
+              title="Terminologia"
+              subtitle="Personalizar nomes e vocabulário"
+              icon="translate" color={PURPLE} bg={PURPLE_BG} tc={tc}
+              onPress={() => navigation.navigate("Terminology")}
+            />
+          )}
         </View>
 
         {/* ── Indicadores ──────────────────────────────────────────────── */}
-        <SectionHeader
-          title="Indicadores"
-          subtitle="Resumo rápido da operação"
-          tc={tc}
-        />
+        <SectionHeader title="Indicadores" subtitle="Resumo rápido da operação" tc={tc} />
 
         <View style={styles.metricsGrid}>
+          {/* t.member, t.cell nos labels dos cards */}
           {perms.canViewMembers && (
             <MetricCard
-              label="Membros" value={stats.members}
+              label={`${t.member}s`} value={stats.members}
               icon="account-group-outline" helper="ativos"
               color={BRAND_BLUE} bg={BRAND_LIGHT} tc={tc}
             />
           )}
           {perms.canAccessCells && (
             <MetricCard
-              label="Células" value={stats.cells}
+              label={t.cell} value={stats.cells}
               icon="home-group" helper="ativas"
               color={SUCCESS} bg={SUCCESS_BG} tc={tc}
             />
@@ -453,11 +467,7 @@ export default function AdminDashboardScreen({ navigation }) {
         </View>
 
         {/* ── Pendências ───────────────────────────────────────────────── */}
-        <SectionHeader
-          title="Pendências"
-          subtitle="Itens que precisam de atenção"
-          tc={tc}
-        />
+        <SectionHeader title="Pendências" subtitle="Itens que precisam de atenção" tc={tc} />
 
         <View style={styles.pendingList}>
           {perms.canCreateEvent && (
@@ -465,18 +475,29 @@ export default function AdminDashboardScreen({ navigation }) {
               icon="calendar-alert"
               title="Confirmações de evento"
               description={`${formatNumber(stats.eventsPending)} pendente(s) nos próximos dias`}
-              helper="Confira participantes e escalas."
+              helper={`Confira participantes e ${t.schedule.toLowerCase()}s.`}
               buttonLabel="Ver"
               color={WARNING} bg={WARNING_BG} tc={tc}
               onPress={() => navigation.navigate("EventsManageScreen")}
             />
           )}
+          {perms.canViewReports && (
+            <PendingItem
+              icon="chart-box-outline"
+              title="Relatórios da igreja"
+              description="Crescimento, presença e indicadores"
+              helper="Acompanhe a evolução da comunidade."
+              buttonLabel="Ver"
+              color={BRAND_BLUE} bg={BRAND_LIGHT} tc={tc}
+              onPress={() => navigation.navigate("Reports")}
+            />
+          )}
           {perms.canApproveMember && (
             <PendingItem
               icon="account-check-outline"
-              title="Aprovações de cadastro"
+              title={`Aprovações de ${t.member.toLowerCase()}`}
               description={`${formatNumber(stats.approvals)} solicitação(ões) aguardando`}
-              helper="Revise novos membros."
+              helper={`Revise novos ${t.member.toLowerCase()}s.`}
               buttonLabel="Revisar"
               color={BRAND_BLUE} bg={BRAND_LIGHT} tc={tc}
               onPress={() => navigation.navigate("MembersManage")}
@@ -488,9 +509,9 @@ export default function AdminDashboardScreen({ navigation }) {
               title="Tudo em ordem"
               description="Sem pendências para o seu perfil."
               helper=""
-              buttonLabel="Minha célula"
+              buttonLabel="Relatórios"
               color={SUCCESS} bg={SUCCESS_BG} tc={tc}
-              onPress={() => navigation.navigate("CellsManage")}
+              onPress={() => navigation.navigate("Reports")}
             />
           )}
         </View>
@@ -510,25 +531,19 @@ export default function AdminDashboardScreen({ navigation }) {
                   </Text>
                   <Text style={styles.ctaSubtitle}>
                     {perms.canManageEventScales
-                      ? "Defina data, participantes e escalas."
+                      ? `Defina data, participantes e ${t.schedule.toLowerCase()}s.`
                       : "Defina data, local e participantes."}
                   </Text>
                 </View>
               </View>
               <View style={styles.ctaActions}>
-                <TouchableRipple
-                  onPress={() => navigation.navigate("EventComposerScreen")}
-                  borderless style={styles.ctaMainBtn}
-                >
+                <TouchableRipple onPress={() => navigation.navigate("EventComposerScreen")} borderless style={styles.ctaMainBtn}>
                   <View style={styles.ctaBtnInner}>
                     <Icon source="plus" size={14} color={NAVY} />
                     <Text style={styles.ctaBtnText}>Novo evento</Text>
                   </View>
                 </TouchableRipple>
-                <TouchableRipple
-                  onPress={() => navigation.navigate("EventsManageScreen")}
-                  borderless style={styles.ctaSecondaryBtn}
-                >
+                <TouchableRipple onPress={() => navigation.navigate("EventsManageScreen")} borderless style={styles.ctaSecondaryBtn}>
                   <Text style={styles.ctaSecondaryText}>Ver eventos</Text>
                 </TouchableRipple>
               </View>
@@ -549,230 +564,87 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 10, fontSize: 13, fontWeight: "600" },
   container:   { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
 
-  // ── Erro ────────────────────────────────────────────────────────────────────
   errorCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: DANGER_BG,
-    borderWidth: 1,
-    borderColor: DANGER,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: DANGER_BG, borderWidth: 1, borderColor: DANGER,
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12,
   },
   errorText:    { flex: 1, fontSize: 12, color: DANGER, fontWeight: "600" },
   errorBtn:     { borderRadius: 8, overflow: "hidden" },
   errorBtnText: { paddingHorizontal: 10, paddingVertical: 5, fontSize: 12, fontWeight: "800", color: DANGER },
 
-  // ── Hero ────────────────────────────────────────────────────────────────────
   hero: {
-    backgroundColor: NAVY,
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    marginBottom: 20,
-    overflow: "hidden",
-    position: "relative",
-    ...Platform.select({
-      ios:     { shadowOpacity: 0.10, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-      android: { elevation: 3 },
-    }),
+    backgroundColor: NAVY, borderRadius: 24, paddingHorizontal: 18, paddingVertical: 18,
+    marginBottom: 20, overflow: "hidden", position: "relative",
+    ...Platform.select({ ios: { shadowOpacity: 0.10, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 3 } }),
   },
-  blob: {
-    position: "absolute",
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.07)",
-  },
-  heroTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-    zIndex: 2,
-  },
-  heroIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroReportBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
+  blob:          { position: "absolute", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.07)" },
+  heroTop:       { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, zIndex: 2 },
+  heroIconWrap:  { width: 40, height: 40, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center" },
+  heroReportBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
   heroReportBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
   heroTitle:    { fontSize: 22, fontWeight: "900", color: "#fff", letterSpacing: -0.5, zIndex: 2 },
   heroSubtitle: { marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.60)", lineHeight: 18, zIndex: 2 },
   heroPills:    { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12, zIndex: 2 },
 
-  // ── Pill ────────────────────────────────────────────────────────────────────
   pill:     { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
   pillText: { fontSize: 11, fontWeight: "800" },
 
-  // ── Section header ───────────────────────────────────────────────────────────
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 18,
-    marginBottom: 10,
-  },
-  sectionHeaderBar: {
-    width: 3,
-    height: 16,
-    borderRadius: 999,
-    backgroundColor: BRAND_BLUE,
-  },
-  sectionTitle:      { fontSize: 14, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
-  sectionSubtitle:   { fontSize: 11, lineHeight: 16, marginTop: 1 },
-  sectionAction:     { borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 },
-  sectionActionText: { fontSize: 12, fontWeight: "700" },
+  sectionHeader:    { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 18, marginBottom: 10 },
+  sectionHeaderBar: { width: 3, height: 16, borderRadius: 999, backgroundColor: BRAND_BLUE },
+  sectionTitle:     { fontSize: 14, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
+  sectionSubtitle:  { fontSize: 11, lineHeight: 16, marginTop: 1 },
+  sectionAction:    { borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 },
+  sectionActionText:{ fontSize: 12, fontWeight: "700" },
 
-  // ── Metrics grid — 2 colunas, compacto ──────────────────────────────────────
   metricsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 2 },
   metricCard: {
-    flex: 1,
-    minWidth: "47%",
-    maxWidth: "48.5%",
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    ...Platform.select({
-      ios:     { shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
-      android: { elevation: 1 },
-    }),
+    flex: 1, minWidth: "47%", maxWidth: "48.5%", borderWidth: 1, borderRadius: 16, padding: 12,
+    ...Platform.select({ ios: { shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }, android: { elevation: 1 } }),
   },
-  metricTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    marginBottom: 8,
-  },
-  metricIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  metricValue:  { fontSize: 22, fontWeight: "900", color: NAVY, letterSpacing: -0.5 },
-  metricLabel:  { flex: 1, fontSize: 12, fontWeight: "700", color: NAVY, letterSpacing: -0.1 },
-  metricHelper: { fontSize: 10, lineHeight: 14, marginTop: 2 },
+  metricTop:     { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 8 },
+  metricIconWrap:{ width: 30, height: 30, borderRadius: 9, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  metricValue:   { fontSize: 22, fontWeight: "900", color: NAVY, letterSpacing: -0.5 },
+  metricLabel:   { flex: 1, fontSize: 12, fontWeight: "700", color: NAVY, letterSpacing: -0.1 },
+  metricHelper:  { fontSize: 10, lineHeight: 14, marginTop: 2 },
 
-  // ── Pending list — linhas horizontais compactas ──────────────────────────────
   pendingList: { gap: 8, marginBottom: 2 },
   pendingCard: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    ...Platform.select({
-      ios:     { shadowOpacity: 0.04, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
-      android: { elevation: 1 },
-    }),
+    borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 11,
+    ...Platform.select({ ios: { shadowOpacity: 0.04, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } }, android: { elevation: 1 } }),
   },
-  pendingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  pendingIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  pendingTexts: { flex: 1, minWidth: 0 },
-  pendingTitle:  { fontSize: 13, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
-  pendingDesc:   { fontSize: 11, lineHeight: 16, marginTop: 1 },
-  pendingHelper: { fontSize: 10, lineHeight: 15, marginTop: 1 },
-  pendingBtn:    { borderRadius: 10, overflow: "hidden", flexShrink: 0 },
-  pendingBtnText:{ paddingHorizontal: 10, paddingVertical: 6, fontSize: 11, fontWeight: "800" },
+  pendingRow:     { flexDirection: "row", alignItems: "center", gap: 10 },
+  pendingIconWrap:{ width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  pendingTexts:   { flex: 1, minWidth: 0 },
+  pendingTitle:   { fontSize: 13, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
+  pendingDesc:    { fontSize: 11, lineHeight: 16, marginTop: 1 },
+  pendingHelper:  { fontSize: 10, lineHeight: 15, marginTop: 1 },
+  pendingBtn:     { borderRadius: 10, overflow: "hidden", flexShrink: 0 },
+  pendingBtnText: { paddingHorizontal: 10, paddingVertical: 6, fontSize: 11, fontWeight: "800" },
 
-  // ── Shortcuts grid ───────────────────────────────────────────────────────────
   shortcutsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 2 },
   shortcutCard: {
-    width: "48%",
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    overflow: "hidden",
-    ...Platform.select({
-      ios:     { shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
-      android: { elevation: 1 },
-    }),
+    width: "48%", borderWidth: 1, borderRadius: 16, padding: 12, overflow: "hidden",
+    ...Platform.select({ ios: { shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }, android: { elevation: 1 } }),
   },
-  shortcutTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 6,
-  },
-  shortcutIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  shortcutTitle:    { flex: 1, fontSize: 13, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
-  shortcutSubtitle: { fontSize: 11, lineHeight: 15, paddingLeft: 40 },
+  shortcutTop:     { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+  shortcutIconWrap:{ width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  shortcutTitle:   { flex: 1, fontSize: 13, fontWeight: "900", color: NAVY, letterSpacing: -0.2 },
+  shortcutSubtitle:{ fontSize: 11, lineHeight: 15, paddingLeft: 40 },
 
-  // ── CTA ─────────────────────────────────────────────────────────────────────
   ctaCard: {
-    backgroundColor: NAVY,
-    borderRadius: 22,
-    overflow: "hidden",
-    position: "relative",
-    marginTop: 18,
-    ...Platform.select({
-      ios:     { shadowOpacity: 0.10, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-      android: { elevation: 3 },
-    }),
+    backgroundColor: NAVY, borderRadius: 22, overflow: "hidden", position: "relative", marginTop: 18,
+    ...Platform.select({ ios: { shadowOpacity: 0.10, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 3 } }),
   },
-  ctaContent:  { padding: 16, zIndex: 2 },
-  ctaTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 14,
-  },
-  ctaIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  ctaTitle:        { fontSize: 16, fontWeight: "900", color: "#fff", letterSpacing: -0.4 },
-  ctaSubtitle:     { marginTop: 3, fontSize: 12, color: "rgba(255,255,255,0.60)", lineHeight: 17 },
-  ctaActions:      { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  ctaMainBtn:      { borderRadius: 12, overflow: "hidden" },
-  ctaBtnInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#fff",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  ctaBtnText:      { fontSize: 13, fontWeight: "800", color: NAVY },
+  ctaContent: { padding: 16, zIndex: 2 },
+  ctaTop:     { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 14 },
+  ctaIconWrap:{ width: 40, height: 40, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  ctaTitle:   { fontSize: 16, fontWeight: "900", color: "#fff", letterSpacing: -0.4 },
+  ctaSubtitle:{ marginTop: 3, fontSize: 12, color: "rgba(255,255,255,0.60)", lineHeight: 17 },
+  ctaActions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  ctaMainBtn: { borderRadius: 12, overflow: "hidden" },
+  ctaBtnInner:{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
+  ctaBtnText: { fontSize: 13, fontWeight: "800", color: NAVY },
   ctaSecondaryBtn: { borderRadius: 12, overflow: "hidden" },
   ctaSecondaryText:{ paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, fontWeight: "700", color: "rgba(255,255,255,0.80)" },
 });
