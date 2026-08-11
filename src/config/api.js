@@ -10,7 +10,7 @@ const MODE = "local"; // 'local' | 'online'
 
 export const API_BASE_URL =
   MODE === "local"
-    ? "http://192.168.1.69:3000"
+    ? "http://10.1.91.176:3000"
     : "https://churchapp-back.onrender.com";
 
 // ─── Instância Axios (para quem usa axios) ─────────────────────
