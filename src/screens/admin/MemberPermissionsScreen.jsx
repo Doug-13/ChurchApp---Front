@@ -37,6 +37,18 @@ const BORDER      = "#E4E6F0";
 // Cada grupo vira uma seção. Cada item é uma permissão do getPermissions().
 const PERMISSION_GROUPS = [
   {
+    key: "repertoires",
+    label: "Louvor e repertórios",
+    icon: "playlist-music-outline",
+    color: "#7C3AED",
+    bg: "#F3E8FF",
+    items: [
+      { key: "canAccessRepertoires", label: "Acessar repertórios", desc: "Ver repertórios liberados para o membro" },
+      { key: "canManageRepertoires", label: "Gerenciar repertórios", desc: "Criar, editar e excluir repertórios" },
+      { key: "canManageSongCatalog", label: "Gerenciar catálogo", desc: "Cadastrar, editar e arquivar músicas" },
+    ],
+  },
+  {
     key:   "cells",
     label: "Células",
     icon:  "home-group",

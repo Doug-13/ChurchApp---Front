@@ -1,17 +1,29 @@
 import axios from "axios";
 import auth from "@react-native-firebase/auth";
 
+import { API_BASE_URL } from "../config/api";
+
 export const api = axios.create({
-  baseURL: "http://10.1.91.176:3000", // seu backend
+  baseURL: API_BASE_URL,
   timeout: 15000,
-  // timeout: 500,
 });
 
-api.interceptors.request.use(async (config) => {
-  const user = auth().currentUser;
-  if (user) {
-    const token = await user.getIdToken();
-    config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(
+  async (config) => {
+    const user = auth().currentUser;
+
+    if (user) {
+      const token = await user.getIdToken();
+
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
+
+export default api;

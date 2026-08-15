@@ -3,6 +3,6 @@
   "compilerOptions": {
     "types": ["jest"],
   },
-  "include": ["**/*.ts", "**/*.tsx", "src/screens/schedules/ScheduleCreateScreen.jsx"],
+  "include": ["**/*.ts", "**/*.tsx", "src/screens/schedules/ScheduleCreateScreen.jsx", "src/components/RelatedRepertoiresSection.jsx"],
   "exclude": ["**/node_modules", "**/Pods"]
 }

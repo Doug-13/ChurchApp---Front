@@ -17,7 +17,6 @@ import CellsStack from "./stacks/CellsStack";
 import MoreStack from "./stacks/MoreStack";
 import EventsStack from "./stacks/EventsStack";
 import AdminStack from "./stacks/AdminStack";
-import RepertoiresStack from "./stacks/RepertoiresStack";
 
 const Tab = createBottomTabNavigator();
 
@@ -26,7 +25,9 @@ function NotificationsRedirect() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.navigate("HomeTab", { screen: "Notifications" });
+      navigation.navigate("HomeTab", {
+        screen: "Notifications",
+      });
     }, 0);
 
     return () => clearTimeout(timer);
@@ -39,7 +40,6 @@ const TAB_INITIAL_ROUTES = {
   HomeTab: "Home",
   NewsTab: "NewsFeed",
   Events: "EventsList",
-  RepertoiresTab: "RepertoiresList",
   SchedulesTab: "MySchedules",
   CellsTab: "CellsList",
   AdminTab: "AdminDashboard",
@@ -57,7 +57,7 @@ function makeTabListeners(tabName) {
         CommonActions.navigate({
           name: tabName,
           params: {},
-        })
+        }),
       );
 
       requestAnimationFrame(() => {
@@ -73,7 +73,7 @@ function makeTabListeners(tabName) {
                 },
               },
             ],
-          })
+          }),
         );
       });
     },
@@ -92,7 +92,6 @@ export default function AppTabs() {
     if (auth?.user?.role) return auth.user.role;
     if (auth?.currentChurch?.myRole) return auth.currentChurch.myRole;
     if (auth?.selectedChurch?.myRole) return auth.selectedChurch.myRole;
-
     if (auth?.isAdmin) return ROLES.ADMIN;
 
     return ROLES.MEMBER;
@@ -108,9 +107,17 @@ export default function AppTabs() {
 
   const extraPermissions = useMemo(() => {
     if (auth?.extraPermissions) return auth.extraPermissions;
-    if (auth?.user?.extraPermissions) return auth.user.extraPermissions;
-    if (auth?.currentChurch?.extraPermissions) return auth.currentChurch.extraPermissions;
-    if (auth?.selectedChurch?.extraPermissions) return auth.selectedChurch.extraPermissions;
+    if (auth?.user?.extraPermissions) {
+      return auth.user.extraPermissions;
+    }
+
+    if (auth?.currentChurch?.extraPermissions) {
+      return auth.currentChurch.extraPermissions;
+    }
+
+    if (auth?.selectedChurch?.extraPermissions) {
+      return auth.selectedChurch.extraPermissions;
+    }
 
     return {};
   }, [
@@ -128,22 +135,36 @@ export default function AppTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+
         tabBarActiveTintColor: theme.colors.primary,
+
         tabBarStyle: {
           height: 64,
           paddingBottom: 10,
           paddingTop: 8,
         },
+
         tabBarIcon: ({ focused, color, size }) => {
           const map = {
             HomeTab: focused ? "home" : "home-outline",
-            NewsTab: focused ? "newspaper" : "newspaper-outline",
-            Events: focused ? "calendar" : "calendar-outline",
-            RepertoiresTab: focused ? "musical-notes" : "musical-notes-outline",
-            SchedulesTab: focused ? "calendar" : "calendar-outline",
-            CellsTab: focused ? "people" : "people-outline",
-            AdminTab: focused ? "settings" : "settings-outline",
-            MoreTab: focused ? "menu" : "menu-outline",
+            NewsTab: focused
+              ? "newspaper"
+              : "newspaper-outline",
+            Events: focused
+              ? "calendar"
+              : "calendar-outline",
+            SchedulesTab: focused
+              ? "calendar"
+              : "calendar-outline",
+            CellsTab: focused
+              ? "people"
+              : "people-outline",
+            AdminTab: focused
+              ? "settings"
+              : "settings-outline",
+            MoreTab: focused
+              ? "menu"
+              : "menu-outline",
           };
 
           return (
@@ -186,16 +207,6 @@ export default function AppTabs() {
         listeners={makeTabListeners("Events")}
       />
 
-      <Tab.Screen
-        name="RepertoiresTab"
-        component={RepertoiresStack}
-        options={{
-          title: "Louvor",
-          headerShown: false,
-        }}
-        listeners={makeTabListeners("RepertoiresTab")}
-      />
-
       {perms?.canAccessSchedules && (
         <Tab.Screen
           name="SchedulesTab"
@@ -232,14 +243,18 @@ export default function AppTabs() {
         />
       )}
 
-      {/* <Tab.Screen
+      {/*
+      <Tab.Screen
         name="NotificationsTab"
         component={NotificationsRedirect}
         options={{
           tabBarButton: () => null,
-          tabBarItemStyle: { display: "none" },
+          tabBarItemStyle: {
+            display: "none",
+          },
         }}
-      /> */}
+      />
+      */}
 
       <Tab.Screen
         name="MoreTab"

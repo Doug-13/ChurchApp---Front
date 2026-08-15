@@ -1,6 +1,6 @@
 import auth from "@react-native-firebase/auth";
 
-const BASE_URL = "http://10.1.91.176:3000";
+const BASE_URL = "http://192.168.1.14:3000";
 
 export async function uploadFile(file: { uri: string; name: string; type: string }) {
   const token = await auth().currentUser?.getIdToken();

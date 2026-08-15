@@ -19,6 +19,7 @@ import {
   TextInput,
   View,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
@@ -335,9 +336,7 @@ function isValidDateInput(value) {
   const d = new Date(yyyy, mm - 1, dd);
 
   return (
-    d.getFullYear() === yyyy &&
-    d.getMonth() === mm - 1 &&
-    d.getDate() === dd
+    d.getFullYear() === yyyy && d.getMonth() === mm - 1 && d.getDate() === dd
   );
 }
 
@@ -511,17 +510,19 @@ function useChurchMinistries({ churchId, enabled, q, apiGet }) {
         qs.set("q", term);
       }
 
-      const json = await apiGet(`/churches/${churchId}/ministries?${qs.toString()}`);
+      const json = await apiGet(
+        `/churches/${churchId}/ministries?${qs.toString()}`,
+      );
 
       if (rid !== reqIdRef.current) return;
 
       const arr = Array.isArray(json?.items)
         ? json.items
         : Array.isArray(json?.data)
-        ? json.data
-        : Array.isArray(json)
-        ? json
-        : [];
+          ? json.data
+          : Array.isArray(json)
+            ? json
+            : [];
 
       setItems(dedupeMinistries(arr.map(normalizeMinistry)));
     } catch (err) {
@@ -673,7 +674,11 @@ function CoverPicker({
     <View style={styles.coverWrap}>
       {uri ? (
         <View style={styles.coverPreviewWrap}>
-          <Image source={{ uri }} style={styles.coverPreview} resizeMode="cover" />
+          <Image
+            source={{ uri }}
+            style={styles.coverPreview}
+            resizeMode="cover"
+          />
 
           {uploading && (
             <View style={styles.coverOverlay}>
@@ -746,65 +751,6 @@ function CoverPicker({
         </Pressable>
       )}
     </View>
-  );
-}
-
-function StatusToggle({ active, onToggle, disabled }) {
-  return (
-    <Pressable
-      onPress={disabled ? null : onToggle}
-      style={[
-        styles.statusToggle,
-        {
-          backgroundColor: active ? "#E8F9F3" : DS.colors.bg,
-          borderColor: active ? DS.colors.success : DS.colors.border,
-        },
-        disabled && {
-          opacity: 0.5,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.statusDot,
-          {
-            backgroundColor: active
-              ? DS.colors.success
-              : DS.colors.textMuted,
-          },
-        ]}
-      />
-
-      <View style={{ flex: 1 }}>
-        <Text
-          style={[
-            styles.statusLabel,
-            {
-              color: active ? DS.colors.success : DS.colors.textMuted,
-            },
-          ]}
-        >
-          {active ? "Publicado" : "Rascunho"}
-        </Text>
-
-        <Text style={styles.statusSub}>
-          {active
-            ? "Visível conforme destino e validade."
-            : "Não aparece para os membros."}
-        </Text>
-      </View>
-
-      <View style={[styles.switchFake, active ? styles.switchOn : styles.switchOff]}>
-        <View
-          style={[
-            styles.switchThumb,
-            active
-              ? { alignSelf: "flex-end" }
-              : { alignSelf: "flex-start" },
-          ]}
-        />
-      </View>
-    </Pressable>
   );
 }
 
@@ -916,7 +862,9 @@ function BottomSheet({
               ) : null}
             </View>
 
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            >
               {rightAction}
 
               <IconButton
@@ -950,7 +898,12 @@ function SelectField({ label, value, placeholder, leftIcon, onPress }) {
             <PaperTextInput.Icon icon={leftIcon} color={DS.colors.textMuted} />
           ) : null
         }
-        right={<PaperTextInput.Icon icon="chevron-down" color={DS.colors.textMuted} />}
+        right={
+          <PaperTextInput.Icon
+            icon="chevron-down"
+            color={DS.colors.textMuted}
+          />
+        }
         pointerEvents="none"
         outlineColor={DS.colors.border}
         activeOutlineColor={DS.colors.primary}
@@ -998,7 +951,8 @@ export default function NewsFormScreen({ navigation, route }) {
 
   const { activeChurchId, activeChurch, apiFetchAuth } = useAuth();
 
-  const churchId = activeChurchId || activeChurch?.id || existingPost?.churchId || null;
+  const churchId =
+    activeChurchId || activeChurch?.id || existingPost?.churchId || null;
 
   const mounted = useRef(true);
   const saveInFlightRef = useRef(false);
@@ -1028,9 +982,6 @@ export default function NewsFormScreen({ navigation, route }) {
   const [title, setTitle] = useState(safeStr(existingPost?.title));
   const [content, setContent] = useState(safeStr(existingPost?.content));
   const [type, setType] = useState(initialType);
-  const [active, setActive] = useState(
-    existingPost ? existingPost?.active !== false : true,
-  );
   const [coverUri, setCoverUri] = useState(safeStr(existingPost?.coverUrl));
 
   const [expiresDate, setExpiresDate] = useState(initialExpires.date);
@@ -1046,6 +997,17 @@ export default function NewsFormScreen({ navigation, route }) {
   );
   const [visibilityPickerOpen, setVisibilityPickerOpen] = useState(false);
   const [ministryQuery, setMinistryQuery] = useState("");
+  const [typePickerOpen, setTypePickerOpen] = useState(false);
+  const [addRepertoire, setAddRepertoire] = useState(
+    Boolean(existingPost?.repertoireId || existingPost?.repertoire),
+  );
+  const [selectedRepertoire, setSelectedRepertoire] = useState(
+    existingPost?.repertoire ?? null,
+  );
+  const [repertoirePickerOpen, setRepertoirePickerOpen] = useState(false);
+  const [repertoires, setRepertoires] = useState([]);
+  const [repertoiresLoading, setRepertoiresLoading] = useState(false);
+  const [repertoiresError, setRepertoiresError] = useState("");
 
   const apiGet = useCallback(
     async (path) => {
@@ -1123,12 +1085,16 @@ export default function NewsFormScreen({ navigation, route }) {
     title: safeStr(existingPost?.title),
     content: safeStr(existingPost?.content),
     type: initialType,
-    active: existingPost ? existingPost?.active !== false : true,
     coverUri: safeStr(existingPost?.coverUrl),
     expiresDate: initialExpires.date,
     expiresTime: initialExpires.time,
     visibilityMode: initialVisibilityMode,
     visibilityMinistries: dedupeMinistries(initialVisibilityMinistries),
+    addRepertoire: Boolean(
+      existingPost?.repertoireId || existingPost?.repertoire,
+    ),
+    repertoireId:
+      existingPost?.repertoireId || existingPost?.repertoire?.id || null,
   });
 
   useEffect(() => {
@@ -1188,24 +1154,62 @@ export default function NewsFormScreen({ navigation, route }) {
       title !== initial.title ||
       content !== initial.content ||
       type !== initial.type ||
-      active !== initial.active ||
       coverUri !== initial.coverUri ||
       expiresDate !== initial.expiresDate ||
       expiresTime !== initial.expiresTime ||
       visibilityMode !== initial.visibilityMode ||
-      selectedVisibilityKey !== initialVisibilityKey
+      selectedVisibilityKey !== initialVisibilityKey ||
+      addRepertoire !== initial.addRepertoire ||
+      (selectedRepertoire?.id || null) !== initial.repertoireId
     );
   }, [
     title,
     content,
     type,
-    active,
     coverUri,
     expiresDate,
     expiresTime,
     visibilityMode,
     selectedVisibilityKey,
+    addRepertoire,
+    selectedRepertoire,
   ]);
+
+  useEffect(() => {
+    if (!repertoirePickerOpen || !churchId) return;
+
+    let cancelled = false;
+
+    const loadRepertoires = async () => {
+      setRepertoiresLoading(true);
+      setRepertoiresError("");
+
+      try {
+        const response = await apiGet(
+          `/churches/${churchId}/repertoires?take=100`,
+        );
+        const rows = Array.isArray(response)
+          ? response
+          : response?.items || response?.data?.items || [];
+
+        if (!cancelled) setRepertoires(rows);
+      } catch (err) {
+        if (!cancelled) {
+          setRepertoires([]);
+          setRepertoiresError(
+            err?.message || "Não foi possível carregar os repertórios.",
+          );
+        }
+      } finally {
+        if (!cancelled) setRepertoiresLoading(false);
+      }
+    };
+
+    loadRepertoires();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiGet, churchId, repertoirePickerOpen]);
 
   const expiresAtIso = useMemo(() => {
     return inputPartsToISO(expiresDate, expiresTime);
@@ -1305,7 +1309,9 @@ export default function NewsFormScreen({ navigation, route }) {
       setVisibilityMode("ministries");
 
       setVisibilityMinistries((prev) => {
-        const exists = prev.some((item) => String(item.id) === String(ministry.id));
+        const exists = prev.some(
+          (item) => String(item.id) === String(ministry.id),
+        );
 
         if (exists) {
           return prev.filter((item) => String(item.id) !== String(ministry.id));
@@ -1368,6 +1374,10 @@ export default function NewsFormScreen({ navigation, route }) {
       return "Selecione ao menos um ministério ou use a opção Toda a igreja.";
     }
 
+    if (addRepertoire && !selectedRepertoire?.id) {
+      return "Selecione um repertório ou desative a opção Adicionar repertório.";
+    }
+
     if (expiresDate && !isValidDateInput(expiresDate)) {
       return "A data de expiração está inválida.";
     }
@@ -1395,6 +1405,8 @@ export default function NewsFormScreen({ navigation, route }) {
     expiresDate,
     expiresTime,
     expiresAtIso,
+    addRepertoire,
+    selectedRepertoire,
   ]);
 
   const onSave = useCallback(async () => {
@@ -1463,16 +1475,22 @@ export default function NewsFormScreen({ navigation, route }) {
         title: title.trim(),
         content: content.trim(),
         type: finalType,
-        active,
+        // Todo aviso é publicado ao ser salvo; a audiência é definida
+        // exclusivamente pela visibilidade selecionada.
+        active: true,
         coverUrl: finalCoverUrl ?? null,
         targetDepartmentId: firstMinistry?.id ?? null,
         targetDepartmentName: firstMinistry?.name ?? null,
         expiresAt: expiresAtIso,
+        repertoireId: addRepertoire ? (selectedRepertoire?.id ?? null) : null,
       };
 
       if (__DEV__) {
         console.log("🧾 [NewsForm] payload:", payload);
-        console.log("🧾 [NewsForm] visibilityMinistries:", visibilityMinistries);
+        console.log(
+          "🧾 [NewsForm] visibilityMinistries:",
+          visibilityMinistries,
+        );
       }
 
       const saved = isEdit
@@ -1491,6 +1509,8 @@ export default function NewsFormScreen({ navigation, route }) {
         expiresTime,
         visibilityMode,
         visibilityMinistries,
+        addRepertoire,
+        repertoireId: addRepertoire ? (selectedRepertoire?.id ?? null) : null,
       };
 
       if (mounted.current) {
@@ -1538,7 +1558,6 @@ export default function NewsFormScreen({ navigation, route }) {
     title,
     content,
     type,
-    active,
     visibilityMode,
     visibilityMinistries,
     expiresAtIso,
@@ -1548,6 +1567,8 @@ export default function NewsFormScreen({ navigation, route }) {
     apiPatch,
     apiPost,
     navigation,
+    addRepertoire,
+    selectedRepertoire,
   ]);
 
   const onCancel = useCallback(() => {
@@ -1644,13 +1665,14 @@ export default function NewsFormScreen({ navigation, route }) {
 
         <View style={styles.card}>
           <Field label="Tipo de aviso" required>
-            <TypeSelector
-              selected={type}
-              onSelect={(value) => {
-                setType(normalizeNewsType(value));
-                setError("");
+            <SelectField
+              label="Tipo"
+              value={selectedType.label}
+              placeholder="Selecione o tipo"
+              leftIcon={selectedType.icon}
+              onPress={() => {
+                if (!isDisabled) setTypePickerOpen(true);
               }}
-              disabled={isDisabled}
             />
           </Field>
         </View>
@@ -1695,6 +1717,88 @@ export default function NewsFormScreen({ navigation, route }) {
               <Text style={styles.charCount}>{content.length} caracteres</Text>
             </Field>
           </View>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.repertoireToggleRow}>
+            <View style={styles.repertoireToggleText}>
+              <Text style={styles.sectionTitle}>Adicionar repertório</Text>
+              <Text style={styles.sectionSub}>
+                Compartilhe um repertório junto com este aviso.
+              </Text>
+            </View>
+
+            <Switch
+              value={addRepertoire}
+              disabled={isDisabled}
+              trackColor={{ false: DS.colors.border, true: "#BFC8FF" }}
+              thumbColor={addRepertoire ? DS.colors.primary : "#FFFFFF"}
+              onValueChange={(value) => {
+                setAddRepertoire(value);
+                if (!value) setSelectedRepertoire(null);
+                setError("");
+              }}
+            />
+          </View>
+
+          {addRepertoire ? (
+            <View style={styles.repertoireContent}>
+              <SelectField
+                label="Repertório"
+                value={selectedRepertoire?.title || ""}
+                placeholder="Selecione um repertório"
+                leftIcon="playlist-music-outline"
+                onPress={() => {
+                  if (!isDisabled) setRepertoirePickerOpen(true);
+                }}
+              />
+
+              {selectedRepertoire ? (
+                <Surface elevation={0} style={styles.selectedRepertoireCard}>
+                  <View style={styles.selectedRepertoireIcon}>
+                    <Icon
+                      source="playlist-music"
+                      size={22}
+                      color={DS.colors.primary}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.selectedRepertoireTitle}>
+                      {selectedRepertoire.title}
+                    </Text>
+                    <Text style={styles.selectedRepertoireSub}>
+                      {selectedRepertoire.songsCount ??
+                        selectedRepertoire._count?.songs ??
+                        selectedRepertoire.songs?.length ??
+                        0}{" "}
+                      músicas
+                    </Text>
+                  </View>
+
+                  <IconButton
+                    icon="close"
+                    size={20}
+                    disabled={isDisabled}
+                    onPress={() => setSelectedRepertoire(null)}
+                  />
+                </Surface>
+              ) : null}
+
+              <View style={styles.repertoireVisibilityInfo}>
+                <Icon
+                  source="shield-check-outline"
+                  size={19}
+                  color={DS.colors.primary}
+                />
+                <Text style={styles.repertoireVisibilityText}>
+                  Quem puder visualizar este aviso também poderá acessar este
+                  repertório por meio do aviso. A visibilidade original do
+                  repertório não será alterada.
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.card}>
@@ -1845,21 +1949,6 @@ export default function NewsFormScreen({ navigation, route }) {
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Publicação</Text>
-          <Text style={styles.sectionSub}>
-            Controle se este aviso estará visível para os membros.
-          </Text>
-
-          <View style={{ marginTop: 12 }}>
-            <StatusToggle
-              active={active}
-              onToggle={() => setActive((value) => !value)}
-              disabled={isDisabled}
-            />
-          </View>
-        </View>
-
         {uploading && (
           <View style={styles.uploadProgress}>
             <View style={styles.uploadProgressInner}>
@@ -1899,10 +1988,10 @@ export default function NewsFormScreen({ navigation, route }) {
               uploading
                 ? `Enviando ${uploadPercent}%`
                 : saving
-                ? "Salvando..."
-                : isEdit
-                ? "Salvar alterações"
-                : "Publicar aviso"
+                  ? "Salvando..."
+                  : isEdit
+                    ? "Salvar alterações"
+                    : "Publicar aviso"
             }
             onPress={onSave}
             disabled={isDisabled || !dirty}
@@ -2056,6 +2145,134 @@ export default function NewsFormScreen({ navigation, route }) {
       </Portal>
 
       <BottomSheet
+        visible={typePickerOpen}
+        onDismiss={() => setTypePickerOpen(false)}
+        title="Tipo de aviso"
+        subtitle="Selecione a categoria do comunicado."
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 24 }}
+        >
+          {NEWS_TYPES.map((item) => {
+            const selected = item.value === type;
+            return (
+              <Pressable
+                key={item.value}
+                onPress={() => {
+                  setType(item.value);
+                  setTypePickerOpen(false);
+                  setError("");
+                }}
+              >
+                <Surface
+                  elevation={0}
+                  style={[styles.sheetRow, selected && styles.sheetRowSelected]}
+                >
+                  <View style={styles.sheetRowLeft}>
+                    <View style={styles.sheetIcon(item.color)}>
+                      <Icon source={item.icon} size={18} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.sheetTitle}>{item.label}</Text>
+                  </View>
+                  {selected ? (
+                    <Icon
+                      source="check-circle"
+                      size={22}
+                      color={DS.colors.primary}
+                    />
+                  ) : null}
+                </Surface>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={repertoirePickerOpen}
+        onDismiss={() => setRepertoirePickerOpen(false)}
+        title="Selecionar repertório"
+        subtitle="Os membros acessarão a seleção pela visibilidade deste aviso."
+      >
+        {repertoiresLoading ? (
+          <View style={styles.pickerLoading}>
+            <ActivityIndicator color={DS.colors.primary} />
+            <Text style={styles.helperText}>Carregando repertórios...</Text>
+          </View>
+        ) : repertoiresError ? (
+          <View style={styles.noticeBox}>
+            <Icon
+              source="alert-circle-outline"
+              size={18}
+              color={DS.colors.danger}
+            />
+            <Text style={styles.repertoireErrorText}>{repertoiresError}</Text>
+          </View>
+        ) : repertoires.length === 0 ? (
+          <EmptyState
+            icon="playlist-music-outline"
+            title="Nenhum repertório"
+            description="Crie um repertório antes de vinculá-lo ao aviso."
+          />
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 24 }}
+          >
+            {repertoires.map((item) => {
+              const selected = selectedRepertoire?.id === item.id;
+              const count =
+                item.songsCount ??
+                item._count?.songs ??
+                item.songs?.length ??
+                0;
+
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => {
+                    setSelectedRepertoire(item);
+                    setRepertoirePickerOpen(false);
+                    setError("");
+                  }}
+                >
+                  <Surface
+                    elevation={0}
+                    style={[
+                      styles.sheetRow,
+                      selected && styles.sheetRowSelected,
+                    ]}
+                  >
+                    <View style={styles.sheetRowLeft}>
+                      <View style={styles.sheetIcon(DS.colors.primary)}>
+                        <Icon
+                          source="playlist-music"
+                          size={18}
+                          color="#FFFFFF"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.sheetTitle}>{item.title}</Text>
+                        <Text style={styles.sheetSub}>{count} músicas</Text>
+                      </View>
+                    </View>
+                    {selected ? (
+                      <Icon
+                        source="check-circle"
+                        size={22}
+                        color={DS.colors.primary}
+                      />
+                    ) : null}
+                  </Surface>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+      </BottomSheet>
+
+      <BottomSheet
         visible={visibilityPickerOpen}
         onDismiss={() => setVisibilityPickerOpen(false)}
         title="Quem pode ver"
@@ -2086,7 +2303,9 @@ export default function NewsFormScreen({ navigation, route }) {
                   backgroundColor:
                     visibilityMode === "all" ? DS.colors.tint : DS.colors.card,
                   borderColor:
-                    visibilityMode === "all" ? DS.colors.primary : DS.colors.border,
+                    visibilityMode === "all"
+                      ? DS.colors.primary
+                      : DS.colors.border,
                 },
               ]}
             >
@@ -2104,12 +2323,19 @@ export default function NewsFormScreen({ navigation, route }) {
               </View>
 
               {visibilityMode === "all" ? (
-                <Icon source="check-circle" size={22} color={DS.colors.primary} />
+                <Icon
+                  source="check-circle"
+                  size={22}
+                  color={DS.colors.primary}
+                />
               ) : null}
             </Surface>
           </Pressable>
 
-          <Pressable onPress={setVisibilityByMinistry} style={{ marginBottom: 12 }}>
+          <Pressable
+            onPress={setVisibilityByMinistry}
+            style={{ marginBottom: 12 }}
+          >
             <Surface
               elevation={0}
               style={[
@@ -2132,7 +2358,9 @@ export default function NewsFormScreen({ navigation, route }) {
                 </View>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetTitle}>Ministérios selecionados</Text>
+                  <Text style={styles.sheetTitle}>
+                    Ministérios selecionados
+                  </Text>
                   <Text style={styles.sheetSub}>
                     Apenas os ministérios escolhidos poderão visualizar.
                   </Text>
@@ -2140,7 +2368,11 @@ export default function NewsFormScreen({ navigation, route }) {
               </View>
 
               {visibilityMode === "ministries" ? (
-                <Icon source="check-circle" size={22} color={DS.colors.primary} />
+                <Icon
+                  source="check-circle"
+                  size={22}
+                  color={DS.colors.primary}
+                />
               ) : null}
             </Surface>
           </Pressable>
@@ -2195,7 +2427,9 @@ export default function NewsFormScreen({ navigation, route }) {
               ) : (
                 <View style={{ marginTop: 12, gap: 10 }}>
                   {ministries.map((ministry) => {
-                    const selected = selectedVisibilityIdSet.has(String(ministry.id));
+                    const selected = selectedVisibilityIdSet.has(
+                      String(ministry.id),
+                    );
 
                     return (
                       <Pressable
@@ -2552,59 +2786,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  statusToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1.5,
-  },
-
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-  },
-
-  statusLabel: {
-    fontSize: 14,
-    fontWeight: "900",
-  },
-
-  statusSub: {
-    fontSize: 12,
-    color: DS.colors.textMuted,
-    marginTop: 2,
-  },
-
-  switchFake: {
-    width: 50,
-    height: 28,
-    borderRadius: 999,
-    padding: 3,
-    justifyContent: "center",
-  },
-
-  switchOn: {
-    backgroundColor: "#D7F7EF",
-    borderWidth: 1,
-    borderColor: "#AEECDD",
-  },
-
-  switchOff: {
-    backgroundColor: "#EEF2F7",
-    borderWidth: 1,
-    borderColor: DS.colors.border,
-  },
-
-  switchThumb: {
-    width: 22,
-    height: 22,
-    borderRadius: 999,
-    backgroundColor: DS.colors.primary,
-  },
-
   uploadProgress: {
     backgroundColor: DS.colors.tint,
     borderRadius: 14,
@@ -2725,6 +2906,87 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     marginBottom: 10,
+  },
+
+  sheetRowSelected: {
+    backgroundColor: DS.colors.tint,
+    borderColor: DS.colors.primary,
+  },
+
+  repertoireToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+
+  repertoireToggleText: {
+    flex: 1,
+  },
+
+  repertoireContent: {
+    marginTop: 16,
+    gap: 12,
+  },
+
+  selectedRepertoireCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: DS.radius.md,
+    borderWidth: 1,
+    borderColor: DS.colors.border,
+    backgroundColor: DS.colors.inputBg,
+  },
+
+  selectedRepertoireIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    backgroundColor: DS.colors.tint,
+  },
+
+  selectedRepertoireTitle: {
+    color: DS.colors.text,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+
+  selectedRepertoireSub: {
+    marginTop: 3,
+    color: DS.colors.textMuted,
+    fontSize: 12,
+  },
+
+  repertoireVisibilityInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 9,
+    padding: 12,
+    borderRadius: DS.radius.sm,
+    backgroundColor: DS.colors.tint,
+  },
+
+  repertoireVisibilityText: {
+    flex: 1,
+    color: DS.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  pickerLoading: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 28,
+  },
+
+  repertoireErrorText: {
+    flex: 1,
+    color: DS.colors.danger,
+    fontSize: 13,
   },
 
   sheetRowLeft: {

@@ -234,6 +234,7 @@ function ModernChip({
 
 export default function RepertoiresScreen({ navigation, route }: Props) {
   const auth = useAuth();
+  const canManage = !!(auth as any)?.permissions?.canManageRepertoires;
 
   const routeParams = route.params || {};
 
@@ -386,7 +387,7 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
   };
 
   const openCreate = () => {
-    if (!churchId) return;
+    if (!churchId || !canManage) return;
 
     navigation.push("RepertoireForm", {
       churchId,
@@ -470,13 +471,10 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
                   <Icon source="music-clef-treble" size={24} color="#fff" />
                 </View>
 
-                <IconButton
-                  icon="plus"
-                  size={20}
-                  iconColor="#fff"
-                  onPress={openCreate}
-                  style={styles.heroAddButton}
-                />
+                <View style={{ flexDirection: "row" }}>
+                  <IconButton icon="music-box-multiple-outline" size={20} iconColor="#fff" onPress={() => navigation.navigate("SongCatalog")} style={styles.heroAddButton} />
+                  {canManage ? <IconButton icon="plus" size={20} iconColor="#fff" onPress={openCreate} style={styles.heroAddButton} /> : null}
+                </View>
               </View>
 
               <Text style={styles.heroEyebrow}>Ministério de louvor</Text>
@@ -549,7 +547,7 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
                 </Text>
               </View>
 
-              <Button
+              {canManage ? <Button
                 mode="contained-tonal"
                 icon="plus"
                 onPress={openCreate}
@@ -558,7 +556,7 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
                 textColor={DS.colors.primary}
               >
                 Novo
-              </Button>
+              </Button> : null}
             </View>
           </View>
         }
@@ -580,7 +578,7 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
                 evento ou ensaio.
               </Text>
 
-              <Button
+              {canManage ? <Button
                 mode="contained"
                 icon="plus"
                 onPress={openCreate}
@@ -590,7 +588,7 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
                 textColor="#fff"
               >
                 Criar repertório
-              </Button>
+              </Button> : null}
             </Surface>
           ) : null
         }
@@ -719,13 +717,13 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
         }}
       />
 
-      <FAB
+      {canManage ? <FAB
         icon="plus"
         label="Novo"
         onPress={openCreate}
         style={styles.fab}
         color="#fff"
-      />
+      /> : null}
     </View>
   );
 }

@@ -22,6 +22,7 @@ export type RepertoireSongLink = {
 export type RepertoireSong = {
   id: string;
   repertoireId: string;
+  songId?: string | null;
   order: number;
   title: string;
   artist?: string | null;
@@ -32,6 +33,7 @@ export type RepertoireSong = {
   createdAt?: string;
   updatedAt?: string;
   links?: RepertoireSongLink[];
+  song?: Song | null;
   leadMember?: {
     id: string;
     fullName: string;
@@ -52,6 +54,7 @@ export type Repertoire = {
   scheduleId?: string | null;
   createdById?: string | null;
   allowAssignedMembers: boolean;
+  showInEventDetails: boolean;
   createdAt: string;
   updatedAt: string;
   songsCount?: number;
@@ -107,6 +110,7 @@ export type CreateRepertoireSongLinkPayload = {
 };
 
 export type CreateRepertoireSongPayload = {
+  songId?: string;
   order?: number;
   title: string;
   artist?: string;
@@ -126,6 +130,7 @@ export type CreateRepertoirePayload = {
   eventId?: string;
   scheduleId?: string;
   allowAssignedMembers?: boolean;
+  showInEventDetails?: boolean;
   ministryVisibilityIds?: string[];
   songs?: CreateRepertoireSongPayload[];
 };
@@ -134,3 +139,12 @@ export type UpdateRepertoirePayload = Partial<CreateRepertoirePayload>;
 
 export type UpdateRepertoireSongPayload =
   Partial<CreateRepertoireSongPayload>;
+
+export type SongLink = { label?: string; url: string };
+export type Song = {
+  id: string; churchId: string; title: string; artist?: string | null;
+  defaultTone?: string | null; lyrics?: string | null; chordChart?: string | null;
+  notes?: string | null; links?: SongLink[]; active: boolean;
+  createdAt: string; updatedAt: string; _count?: { repertoireSongs: number };
+};
+export type SaveSongPayload = Omit<Song, "id" | "churchId" | "active" | "createdAt" | "updatedAt" | "_count">;

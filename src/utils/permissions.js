@@ -91,6 +91,9 @@ export const PERMISSION_KEYS = [
   "canViewReports",
   "canManageChurchProfile",
   "canManagePermissions",
+  "canAccessRepertoires",
+  "canManageRepertoires",
+  "canManageSongCatalog",
 ];
 
 // ─── Normalização ─────────────────────────────────────────────────────────────
@@ -209,6 +212,11 @@ function getBasePermissions(rawRole) {
     canCreateSchedule:  weight >= ROLE_WEIGHT.ADMIN,
     canEditSchedule:    weight >= ROLE_WEIGHT.ADMIN,
     canDeleteSchedule:  weight >= ROLE_WEIGHT.ADMIN,
+
+    // Repertórios: consulta liberada; gestão somente por permissão individual.
+    canAccessRepertoires: true,
+    canManageRepertoires: role === ROLES.OWNER,
+    canManageSongCatalog: role === ROLES.OWNER,
 
     // ── Admin ─────────────────────────────────────────────────────────────────
     canAccessAdmin:         weight >= ROLE_WEIGHT.LEADER,

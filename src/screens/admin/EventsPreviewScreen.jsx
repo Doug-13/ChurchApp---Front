@@ -13,6 +13,7 @@ import { getAuth, getIdToken } from "@react-native-firebase/auth";
 import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 import LinearGradient from "react-native-linear-gradient";
+import RelatedRepertoiresSection from "../../components/RelatedRepertoiresSection";
 
 
 // ─── Design tokens (alinhados ao Design Manual) ────────────────────────────
@@ -75,7 +76,7 @@ function SectionHeader({ title, tc }) {
 
 export default function EventsPreviewScreen({ route, navigation }) {
   const theme = useTheme();
-  const { me, activeChurchId, activeChurch } = useAuth();
+  const { me, activeChurchId, activeChurch, permissions } = useAuth();
   const churchId = activeChurchId || activeChurch?.id || null;
 
   const tc = useMemo(() => ({
@@ -361,6 +362,13 @@ export default function EventsPreviewScreen({ route, navigation }) {
             Editar evento
           </Button>
         )}
+
+        <RelatedRepertoiresSection
+          churchId={churchId}
+          eventId={eventId}
+          navigation={navigation}
+          canManage={!!permissions?.canManageRepertoires}
+        />
 
         <View style={{ height: 32 }} />
       </ScrollView>

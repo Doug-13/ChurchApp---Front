@@ -11,6 +11,7 @@ import {
   useTheme,
 } from "react-native-paper";
 import { useAuth } from "../../context/AuthContext";
+import RelatedRepertoiresSection from "../../components/RelatedRepertoiresSection";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ function InfoRow({ icon, label, value }) {
 export default function EventDetailsScreen({ route, navigation }) {
   const theme = useTheme();
   const { id, churchId: routeChurchId } = route.params || {};
-  const { apiFetchAuth, activeChurchId, meLoading } = useAuth();
+  const { apiFetchAuth, activeChurchId, meLoading, permissions } = useAuth();
 
   const churchId = routeChurchId ?? activeChurchId;
 
@@ -492,6 +493,14 @@ export default function EventDetailsScreen({ route, navigation }) {
             )}
           </View>
         )}
+
+        <RelatedRepertoiresSection
+          churchId={churchId}
+          eventId={id}
+          navigation={navigation}
+          canManage={!!permissions?.canManageRepertoires}
+          requireEventVisibility={false}
+        />
 
         <View style={{ height: 24 }} />
       </ScrollView>

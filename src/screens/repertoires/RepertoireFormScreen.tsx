@@ -32,11 +32,13 @@ import {
 import { api } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { repertoiresService } from "../../services/repertoiresService";
+import { songsService } from "../../services/songsService";
 import type {
   Repertoire,
   RepertoireSongStatus,
   RepertoireStatus,
   RepertoireVisibility,
+  Song,
 } from "../../types/repertoire";
 
 type Props = {
@@ -63,6 +65,7 @@ type MinistryOption = {
 
 type DraftSong = {
   tempId: string;
+  songId?: string;
   title: string;
   artist?: string;
   tone?: string;
@@ -406,6 +409,7 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
   const [status, setStatus] = useState<RepertoireStatus>("DRAFT");
 
   const [allowAssignedMembers, setAllowAssignedMembers] = useState(true);
+  const [showInEventDetails, setShowInEventDetails] = useState(false);
 
   const [visibilityPickerOpen, setVisibilityPickerOpen] = useState(false);
 
@@ -418,6 +422,8 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
   const [ministriesLoading, setMinistriesLoading] = useState(false);
 
   const [songs, setSongs] = useState<DraftSong[]>([]);
+  const [catalogSongs, setCatalogSongs] = useState<Song[]>([]);
+  const [selectedCatalogSongId, setSelectedCatalogSongId] = useState("");
   const [songModalOpen, setSongModalOpen] = useState(false);
   const [tonePickerOpen, setTonePickerOpen] = useState(false);
 
@@ -489,6 +495,11 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
   }, [loadMinistries]);
 
   useEffect(() => {
+    if (!churchId) return;
+    songsService.list(churchId).then(setCatalogSongs).catch(() => setCatalogSongs([]));
+  }, [churchId]);
+
+  useEffect(() => {
     let mounted = true;
 
     async function loadRepertoire() {
@@ -512,6 +523,7 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
         setVisibility(data.visibility || "PRIVATE");
         setStatus(data.status || "DRAFT");
         setAllowAssignedMembers(data.allowAssignedMembers ?? true);
+        setShowInEventDetails(data.showInEventDetails ?? false);
 
         const currentVisibilityMinistries = Array.isArray(
           data.visibleToMinistries,
@@ -566,6 +578,7 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
     setLinkLabel("");
     setLinkUrl("");
     setTonePickerOpen(false);
+    setSelectedCatalogSongId("");
   };
 
   const openSongModal = () => {
@@ -598,6 +611,7 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
 
     const newSong: DraftSong = {
       tempId: `${Date.now()}-${Math.random()}`,
+      songId: selectedCatalogSongId || undefined,
       title: cleanTitle,
       artist: songArtist.trim() || undefined,
       tone: songTone || undefined,
@@ -652,6 +666,7 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
         eventId,
         scheduleId,
         allowAssignedMembers,
+        showInEventDetails: eventId ? showInEventDetails : false,
         ministryVisibilityIds:
           visibility === "MINISTRY"
             ? visibilityMinistries.map((m) => m.id)
@@ -660,6 +675,7 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
           !isEdit && songs.length > 0
             ? songs.map((song, index) => ({
                 order: index + 1,
+                songId: song.songId,
                 title: song.title,
                 artist: song.artist,
                 tone: song.tone,
@@ -996,6 +1012,15 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
                   onValueChange={setAllowAssignedMembers}
                 />
               </Surface>
+              {eventId ? (
+                <Surface elevation={0} style={styles.switchCard}>
+                  <View style={styles.switchText}>
+                    <Text style={styles.switchTitle}>Exibir nos detalhes do evento</Text>
+                    <Text style={styles.switchSubtitle}>O repertório aparecerá no evento para usuários que também possuam acesso a ele.</Text>
+                  </View>
+                  <Switch value={showInEventDetails} onValueChange={setShowInEventDetails} />
+                </Surface>
+              ) : null}
             </View>
           </Surface>
 
@@ -1389,6 +1414,32 @@ export default function RepertoireFormScreen({ navigation, route }: Props) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {catalogSongs.length > 0 ? (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldGroupLabel}>Escolher do catálogo</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {catalogSongs.map((song) => (
+                  <Button
+                    key={song.id}
+                    mode={selectedCatalogSongId === song.id ? "contained" : "outlined"}
+                    onPress={() => {
+                      setSelectedCatalogSongId(song.id);
+                      setSongTitle(song.title);
+                      setSongArtist(song.artist || "");
+                      setSongTone(song.defaultTone || "");
+                      const firstLink = Array.isArray(song.links) ? song.links[0] : undefined;
+                      setLinkLabel(firstLink?.label || "Ouvir");
+                      setLinkUrl(firstLink?.url || "");
+                    }}
+                  >
+                    {song.title}
+                  </Button>
+                ))}
+              </ScrollView>
+              <Text style={styles.validationText}>Você pode ajustar o tom e as observações apenas para este repertório.</Text>
+            </View>
+          ) : null}
+
           <TextInput
             label="Nome da música"
             value={songTitle}
