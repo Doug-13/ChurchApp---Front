@@ -256,3 +256,4 @@ export default function AdminStack() {
     </Stack.Navigator>
   );
 }
+
