@@ -12,6 +12,8 @@ import MembersManageScreen from "../../screens/admin/MembersManageScreen";
 import BirthdaysScreen from "../../screens/admin/MembersBirthdayScreen";
 
 import NotificationsScreen from "../../screens/notifications/NotificationsScreen";
+import RepertoiresScreen from "../../screens/repertoires/RepertoiresScreen";
+import RepertoireDetailScreen from "../../screens/repertoires/RepertoireDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -58,6 +60,18 @@ export default function HomeStack() {
         name="ChurchProfile"
         component={ChurchProfile}
         options={{ title: "Igreja" }}
+      />
+
+      <Stack.Screen
+        name="SingWithUs"
+        component={RepertoiresScreen}
+        options={{ title: "Cante com a gente" }}
+      />
+
+      <Stack.Screen
+        name="PublicRepertoireDetail"
+        component={RepertoireDetailScreen}
+        options={{ title: "Músicas do repertório" }}
       />
     </Stack.Navigator>
   );

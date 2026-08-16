@@ -77,6 +77,11 @@ function normalizeStats(data = {}) {
     totalEvents:     safeNum(data.totalEvents     ?? data.eventsCount   ?? data.events),
     upcomingEvents:  safeNum(data.upcomingEvents  ?? data.upcoming),
     avgEventAttendance: safeNum(data.avgEventAttendance ?? data.avgAttendance),
+    eventVisitors: safeNum(data.eventVisitors),
+    eventChildren: safeNum(data.eventChildren),
+    eventDecisions: safeNum(data.eventDecisions),
+    eventFollowUps: safeNum(data.eventFollowUps),
+    visitorPercentage: safeNum(data.visitorPercentage),
 
     // Avisos
     totalNews:       safeNum(data.totalNews       ?? data.newsCount     ?? data.news),
@@ -249,6 +254,7 @@ export default function ReportsScreen() {
         newsData,
         schedulesData,
         attendanceData,
+        eventStatisticsData,
       ] = await Promise.all([
         apiFetchAuth(`/users/me/dashboard`,                                       { method: "GET" }).catch(() => ({})),
         apiFetchAuth(`/users/members`,                                            { method: "GET" }).catch(() => []),
@@ -257,6 +263,7 @@ export default function ReportsScreen() {
         apiFetchAuth(`/news?churchId=${encodeURIComponent(activeChurchId)}`,     { method: "GET" }).catch(() => []),
         apiFetchAuth(`/schedules?churchId=${encodeURIComponent(activeChurchId)}`,{ method: "GET" }).catch(() => []),
         apiFetchAuth(`/churches/${encodeURIComponent(activeChurchId)}/attendance`,{ method: "GET" }).catch(() => ({})),
+        apiFetchAuth(`/churches/${encodeURIComponent(activeChurchId)}/events/statistics/summary`, { method: "GET" }).catch(() => ({})),
       ]);
 
       // Normaliza membros
@@ -301,7 +308,12 @@ export default function ReportsScreen() {
         attendanceWeeks:  rawWeeks,
         totalEvents:      dashboardData?.eventsCount    ?? eventsList.length,
         upcomingEvents:   eventsList.filter((e) => new Date(e.dateLabel ?? e.date ?? 0) >= now).length,
-        avgEventAttendance: dashboardData?.avgEventAttendance ?? 0,
+        avgEventAttendance: eventStatisticsData?.averageAttendance ?? dashboardData?.avgEventAttendance ?? 0,
+        eventVisitors: eventStatisticsData?.totals?.visitors ?? 0,
+        eventChildren: eventStatisticsData?.totals?.children ?? 0,
+        eventDecisions: eventStatisticsData?.totals?.decisions ?? 0,
+        eventFollowUps: eventStatisticsData?.totals?.followUps ?? 0,
+        visitorPercentage: eventStatisticsData?.visitorPercentage ?? 0,
         totalNews:        dashboardData?.newsCount      ?? newsList.length,
         publishedNews:    newsList.filter((n) => n.active ?? true).length,
         newsThisMonth,
@@ -479,7 +491,6 @@ export default function ReportsScreen() {
                   bg={stats.pendingApprovals > 0 ? DANGER_BG : BG}
                 />
               </View>
-
               <Divider style={[s.divider, { marginTop: 12 }]} />
 
               {/* Barra de atividade */}
@@ -598,6 +609,34 @@ export default function ReportsScreen() {
                   icon="calendar-alert"
                   color={stats.pendingSchedules > 0 ? DANGER : MUTED}
                   bg={stats.pendingSchedules > 0 ? DANGER_BG : BG}
+                />
+              </View>
+              <Divider style={s.divider} />
+              <View style={s.statGrid}>
+                <StatCard
+                  label="Visitantes"
+                  value={stats.eventVisitors}
+                  icon="account-plus-outline"
+                  color={PURPLE} bg={PURPLE_BG}
+                  helper={`${stats.visitorPercentage}% do público`}
+                />
+                <StatCard
+                  label="Crianças"
+                  value={stats.eventChildren}
+                  icon="human-child"
+                  color={CYAN} bg={CYAN_BG}
+                />
+                <StatCard
+                  label="Decisões"
+                  value={stats.eventDecisions}
+                  icon="heart-outline"
+                  color={SUCCESS} bg={SUCCESS_BG}
+                />
+                <StatCard
+                  label="Acompanhamentos"
+                  value={stats.eventFollowUps}
+                  icon="account-heart-outline"
+                  color={BRAND} bg={BRAND_LIGHT}
                 />
               </View>
             </Surface>

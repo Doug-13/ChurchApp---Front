@@ -171,7 +171,7 @@ export default function EventsPreviewScreen({ route, navigation }) {
 
   const now = Date.now();
   const eventTs = event?.dateLabel
-    ? new Date(event.dateLabel + "T00:00:00").getTime()
+    ? new Date(`${event.dateLabel}T${event.timeLabel || "23:59"}:00`).getTime()
     : null;
   const isPast = eventTs !== null && eventTs < now;
   const statusColor = isPast ? "#9198B5" : SUCCESS;
@@ -362,6 +362,27 @@ export default function EventsPreviewScreen({ route, navigation }) {
             Editar evento
           </Button>
         )}
+
+        {isPast &&
+          (permissions?.canViewEventStatistics ||
+            permissions?.canManageEventStatistics) && (
+            <Button
+              mode="contained-tonal"
+              icon="chart-box-outline"
+              onPress={() =>
+                navigation.navigate("EventStatistics", {
+                  eventId,
+                  event,
+                })
+              }
+              style={styles.editBtn}
+              contentStyle={styles.editBtnContent}
+            >
+              {permissions?.canManageEventStatistics
+                ? "Registrar estatísticas"
+                : "Ver estatísticas"}
+            </Button>
+          )}
 
         <RelatedRepertoiresSection
           churchId={churchId}

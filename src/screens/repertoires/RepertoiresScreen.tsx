@@ -38,6 +38,7 @@ type Props = {
       ministryId?: string;
       eventId?: string;
       scheduleId?: string;
+      publicOnly?: boolean;
     };
   };
 };
@@ -234,9 +235,11 @@ function ModernChip({
 
 export default function RepertoiresScreen({ navigation, route }: Props) {
   const auth = useAuth();
-  const canManage = !!(auth as any)?.permissions?.canManageRepertoires;
-
   const routeParams = route.params || {};
+  const publicOnly = routeParams.publicOnly === true;
+  const canManage =
+    !publicOnly &&
+    !!(auth as any)?.permissions?.canManageRepertoires;
 
   const churchId = useMemo(
     () => getActiveChurchId(auth, routeParams.churchId),
@@ -244,6 +247,21 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
   );
 
   const { ministryId, eventId, scheduleId } = routeParams;
+
+  const keepVisibleItems = useCallback(
+    (repertoires: Repertoire[]) => {
+      if (!publicOnly) {
+        return repertoires;
+      }
+
+      return repertoires.filter(
+        (repertoire) =>
+          repertoire.visibility === "ALL" &&
+          repertoire.status !== "ARCHIVED",
+      );
+    },
+    [publicOnly],
+  );
 
   const [items, setItems] = useState<Repertoire[]>([]);
   const [q, setQ] = useState("");
@@ -284,10 +302,10 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
         take: 50,
       });
 
-      setItems(response.items || []);
+      setItems(keepVisibleItems(response.items || []));
       setErrorMessage("");
     },
-    [churchId, ministryId, eventId, scheduleId, q],
+    [churchId, ministryId, eventId, scheduleId, q, keepVisibleItems],
   );
 
   useEffect(() => {
@@ -313,7 +331,7 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
         });
 
         if (mounted) {
-          setItems(response.items || []);
+          setItems(keepVisibleItems(response.items || []));
           setErrorMessage("");
         }
       } catch (error: any) {
@@ -347,7 +365,7 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
     return () => {
       mounted = false;
     };
-  }, [churchId, ministryId, eventId, scheduleId]);
+  }, [churchId, ministryId, eventId, scheduleId, keepVisibleItems]);
 
   const onRefresh = async () => {
     try {
@@ -401,10 +419,14 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
   const openDetail = (repertoire: Repertoire) => {
     if (!churchId) return;
 
-    navigation.navigate("RepertoireDetail", {
-      churchId,
-      repertoireId: repertoire.id,
-    });
+    navigation.navigate(
+      publicOnly ? "PublicRepertoireDetail" : "RepertoireDetail",
+      {
+        churchId,
+        repertoireId: repertoire.id,
+        readOnly: publicOnly,
+      },
+    );
   };
 
   if (loading) {
@@ -472,17 +494,31 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
                 </View>
 
                 <View style={{ flexDirection: "row" }}>
-                  <IconButton icon="music-box-multiple-outline" size={20} iconColor="#fff" onPress={() => navigation.navigate("SongCatalog")} style={styles.heroAddButton} />
+                  {!publicOnly ? (
+                    <IconButton
+                      icon="music-box-multiple-outline"
+                      size={20}
+                      iconColor="#fff"
+                      onPress={() => navigation.navigate("SongCatalog")}
+                      style={styles.heroAddButton}
+                    />
+                  ) : null}
                   {canManage ? <IconButton icon="plus" size={20} iconColor="#fff" onPress={openCreate} style={styles.heroAddButton} /> : null}
                 </View>
               </View>
 
-              <Text style={styles.heroEyebrow}>Ministério de louvor</Text>
+              <Text style={styles.heroEyebrow}>
+                {publicOnly ? "Músicas da nossa igreja" : "Ministério de louvor"}
+              </Text>
 
-              <Text style={styles.heroTitle}>Repertórios</Text>
+              <Text style={styles.heroTitle}>
+                {publicOnly ? "Cante com a gente" : "Repertórios"}
+              </Text>
 
               <Text style={styles.heroDescription}>
-                Organize músicas, links, tons e permissões em um só lugar.
+                {publicOnly
+                  ? "Acesse os repertórios abertos, ouça as músicas e aprenda para cantar conosco."
+                  : "Organize músicas, links, tons e permissões em um só lugar."}
               </Text>
 
               <View style={styles.statsRow}>
@@ -540,10 +576,14 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
 
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={styles.sectionTitle}>Lista de repertórios</Text>
+                <Text style={styles.sectionTitle}>
+                  {publicOnly ? "Repertórios abertos" : "Lista de repertórios"}
+                </Text>
 
                 <Text style={styles.sectionSubtitle}>
-                  Toque em um repertório para ver músicas e links.
+                  {publicOnly
+                    ? "Escolha um repertório e aprenda as músicas cantadas na igreja."
+                    : "Toque em um repertório para ver músicas e links."}
                 </Text>
               </View>
 
@@ -571,11 +611,16 @@ export default function RepertoiresScreen({ navigation, route }: Props) {
                 />
               </View>
 
-              <Text style={styles.emptyTitle}>Nenhum repertório encontrado</Text>
+              <Text style={styles.emptyTitle}>
+                {publicOnly
+                  ? "Nenhum repertório aberto"
+                  : "Nenhum repertório encontrado"}
+              </Text>
 
               <Text style={styles.emptyDescription}>
-                Crie seu primeiro repertório para organizar as músicas do culto,
-                evento ou ensaio.
+                {publicOnly
+                  ? "Quando a igreja publicar um repertório para todos, ele aparecerá aqui."
+                  : "Crie seu primeiro repertório para organizar as músicas do culto, evento ou ensaio."}
               </Text>
 
               {canManage ? <Button
@@ -1145,3 +1190,4 @@ const styles = StyleSheet.create({
     backgroundColor: DS.colors.primary,
   },
 });
+

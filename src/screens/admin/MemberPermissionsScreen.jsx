@@ -75,6 +75,8 @@ const PERMISSION_GROUPS = [
       { key: "canEditEvent",         label: "Editar eventos",             desc: "Alterar data, local e detalhes"        },
       { key: "canDeleteEvent",       label: "Excluir eventos",            desc: "Remover eventos permanentemente"       },
       { key: "canManageEventScales", label: "Gerenciar escalas",          desc: "Criar e editar escalas de ministério"  },
+      { key: "canViewEventStatistics", label: "Ver estatísticas", desc: "Consultar os resultados dos eventos realizados" },
+      { key: "canManageEventStatistics", label: "Registrar estatísticas", desc: "Criar e atualizar relatórios pós-evento" },
     ],
   },
   {

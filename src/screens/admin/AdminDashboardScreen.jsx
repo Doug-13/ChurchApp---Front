@@ -502,6 +502,7 @@ export default function AdminDashboardScreen({
   const {
     apiFetchAuth,
     activeChurchId,
+    permissions: authPermissions,
   } = useAuth();
 
   const { t } = useTerms();
@@ -541,6 +542,7 @@ export default function AdminDashboardScreen({
   ] = useState("");
 
   const perms =
+    authPermissions ||
     getPermissions(myRole);
 
   const roleMeta =
@@ -1097,6 +1099,23 @@ export default function AdminDashboardScreen({
               icon="chart-box-outline"
               color={BRAND_BLUE}
               bg={BRAND_LIGHT}
+              tc={tc}
+              onPress={() =>
+                navigation.navigate(
+                  "Reports",
+                )
+              }
+            />
+          )}
+
+          {(perms.canViewEventStatistics ||
+            perms.canManageEventStatistics) && (
+            <ShortcutCard
+              title="Estatísticas de eventos"
+              subtitle="Público, visitantes e decisões"
+              icon="chart-timeline-variant"
+              color={SUCCESS}
+              bg={SUCCESS_BG}
               tc={tc}
               onPress={() =>
                 navigation.navigate(

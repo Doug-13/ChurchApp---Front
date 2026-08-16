@@ -1,4 +1,5 @@
 import { api } from "./api";
+
 import type {
   CreateRepertoirePayload,
   CreateRepertoireSongLinkPayload,
@@ -30,29 +31,90 @@ function cleanParams(params?: Record<string, unknown>) {
   return result;
 }
 
+function normalizeListResponse(
+  data:
+    | RepertoiresListResponse
+    | Repertoire[]
+    | {
+        items?: Repertoire[];
+        repertoires?: Repertoire[];
+        list?: Repertoire[];
+        nextCursor?: string | null;
+      }
+    | null
+    | undefined,
+): RepertoiresListResponse {
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      nextCursor: null,
+    };
+  }
+
+  if (!data || typeof data !== "object") {
+    return {
+      items: [],
+      nextCursor: null,
+    };
+  }
+
+  const response = data as {
+    items?: Repertoire[];
+    repertoires?: Repertoire[];
+    list?: Repertoire[];
+    nextCursor?: string | null;
+  };
+
+  const items = Array.isArray(response.items)
+    ? response.items
+    : Array.isArray(response.repertoires)
+      ? response.repertoires
+      : Array.isArray(response.list)
+        ? response.list
+        : [];
+
+  return {
+    items,
+    nextCursor: response.nextCursor ?? null,
+  };
+}
+
 export const repertoiresService = {
-  async list(churchId: string, params?: ListRepertoiresParams) {
-    const response = await api.get<RepertoiresListResponse>(
-      `/churches/${churchId}/repertoires`,
+  async list(
+    churchId: string,
+    params?: ListRepertoiresParams,
+  ): Promise<RepertoiresListResponse> {
+    const response = await api.get<
+      RepertoiresListResponse | Repertoire[]
+    >(
+      `/churches/${encodeURIComponent(churchId)}/repertoires`,
       {
         params: cleanParams(params),
       },
     );
 
-    return response.data;
+    return normalizeListResponse(response.data);
   },
 
-  async getOne(churchId: string, repertoireId: string) {
+  async getOne(
+    churchId: string,
+    repertoireId: string,
+  ): Promise<Repertoire> {
     const response = await api.get<Repertoire>(
-      `/churches/${churchId}/repertoires/${repertoireId}`,
+      `/churches/${encodeURIComponent(
+        churchId,
+      )}/repertoires/${encodeURIComponent(repertoireId)}`,
     );
 
     return response.data;
   },
 
-  async create(churchId: string, payload: CreateRepertoirePayload) {
+  async create(
+    churchId: string,
+    payload: CreateRepertoirePayload,
+  ): Promise<Repertoire> {
     const response = await api.post<Repertoire>(
-      `/churches/${churchId}/repertoires`,
+      `/churches/${encodeURIComponent(churchId)}/repertoires`,
       payload,
     );
 
@@ -63,18 +125,25 @@ export const repertoiresService = {
     churchId: string,
     repertoireId: string,
     payload: UpdateRepertoirePayload,
-  ) {
+  ): Promise<Repertoire> {
     const response = await api.patch<Repertoire>(
-      `/churches/${churchId}/repertoires/${repertoireId}`,
+      `/churches/${encodeURIComponent(
+        churchId,
+      )}/repertoires/${encodeURIComponent(repertoireId)}`,
       payload,
     );
 
     return response.data;
   },
 
-  async remove(churchId: string, repertoireId: string) {
+  async remove(
+    churchId: string,
+    repertoireId: string,
+  ): Promise<{ ok: boolean }> {
     const response = await api.delete<{ ok: boolean }>(
-      `/churches/${churchId}/repertoires/${repertoireId}`,
+      `/churches/${encodeURIComponent(
+        churchId,
+      )}/repertoires/${encodeURIComponent(repertoireId)}`,
     );
 
     return response.data;
@@ -86,7 +155,9 @@ export const repertoiresService = {
     payload: CreateRepertoireSongPayload,
   ) {
     const response = await api.post(
-      `/churches/${churchId}/repertoires/${repertoireId}/songs`,
+      `/churches/${encodeURIComponent(
+        churchId,
+      )}/repertoires/${encodeURIComponent(repertoireId)}/songs`,
       payload,
     );
 
@@ -100,7 +171,11 @@ export const repertoiresService = {
     payload: UpdateRepertoireSongPayload,
   ) {
     const response = await api.patch(
-      `/churches/${churchId}/repertoires/${repertoireId}/songs/${songId}`,
+      `/churches/${encodeURIComponent(
+        churchId,
+      )}/repertoires/${encodeURIComponent(
+        repertoireId,
+      )}/songs/${encodeURIComponent(songId)}`,
       payload,
     );
 
@@ -113,7 +188,11 @@ export const repertoiresService = {
     songId: string,
   ) {
     const response = await api.delete<{ ok: boolean }>(
-      `/churches/${churchId}/repertoires/${repertoireId}/songs/${songId}`,
+      `/churches/${encodeURIComponent(
+        churchId,
+      )}/repertoires/${encodeURIComponent(
+        repertoireId,
+      )}/songs/${encodeURIComponent(songId)}`,
     );
 
     return response.data;
@@ -126,7 +205,11 @@ export const repertoiresService = {
     payload: CreateRepertoireSongLinkPayload,
   ) {
     const response = await api.post(
-      `/churches/${churchId}/repertoires/${repertoireId}/songs/${songId}/links`,
+      `/churches/${encodeURIComponent(
+        churchId,
+      )}/repertoires/${encodeURIComponent(
+        repertoireId,
+      )}/songs/${encodeURIComponent(songId)}/links`,
       payload,
     );
 
@@ -140,9 +223,17 @@ export const repertoiresService = {
     linkId: string,
   ) {
     const response = await api.delete<{ ok: boolean }>(
-      `/churches/${churchId}/repertoires/${repertoireId}/songs/${songId}/links/${linkId}`,
+      `/churches/${encodeURIComponent(
+        churchId,
+      )}/repertoires/${encodeURIComponent(
+        repertoireId,
+      )}/songs/${encodeURIComponent(
+        songId,
+      )}/links/${encodeURIComponent(linkId)}`,
     );
 
     return response.data;
   },
 };
+
+export default repertoiresService;

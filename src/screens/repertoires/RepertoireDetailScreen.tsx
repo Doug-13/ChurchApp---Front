@@ -40,6 +40,7 @@ type Props = {
     params: {
       churchId: string;
       repertoireId: string;
+      readOnly?: boolean;
     };
   };
 };
@@ -299,7 +300,7 @@ function SongCompactCard({
   song: RepertoireSong;
   index: number;
   onOpenUrl: (url: string) => void;
-  onRemove: (songId: string) => void;
+  onRemove?: (songId: string) => void;
 }) {
   const imageUrl = useMemo(() => getSongImageUrl(song), [song]);
   const mainLink = useMemo(() => getMainLink(song), [song]);
@@ -354,13 +355,15 @@ function SongCompactCard({
                 )}
               </View>
 
-              <IconButton
-                icon="trash-can-outline"
-                size={19}
-                iconColor={DS.colors.danger}
-                onPress={() => onRemove(song.id)}
-                style={styles.deleteSongButton}
-              />
+              {onRemove ? (
+                <IconButton
+                  icon="trash-can-outline"
+                  size={19}
+                  iconColor={DS.colors.danger}
+                  onPress={() => onRemove(song.id)}
+                  style={styles.deleteSongButton}
+                />
+              ) : null}
             </View>
 
             <View style={styles.songMiniChips}>
@@ -423,7 +426,7 @@ function SongCompactCard({
 }
 
 export default function RepertoireDetailScreen({ navigation, route }: Props) {
-  const { churchId, repertoireId } = route.params;
+  const { churchId, repertoireId, readOnly = false } = route.params;
 
   const [data, setData] = useState<Repertoire | null>(null);
   const [loading, setLoading] = useState(true);
@@ -730,21 +733,23 @@ export default function RepertoireDetailScreen({ navigation, route }: Props) {
                 <Icon source="playlist-music" size={24} color="#fff" />
               </View>
 
-              <View style={styles.heroActions}>
-                <IconButton
-                  icon="pencil"
-                  size={20}
-                  iconColor="#fff"
-                  onPress={() =>
-                    navigation.push("RepertoireForm", {
-                      churchId,
-                      repertoireId,
-                      mode: "edit",
-                    })
-                  }
-                  style={styles.heroIconButton}
-                />
-              </View>
+              {!readOnly ? (
+                <View style={styles.heroActions}>
+                  <IconButton
+                    icon="pencil"
+                    size={20}
+                    iconColor="#fff"
+                    onPress={() =>
+                      navigation.push("RepertoireForm", {
+                        churchId,
+                        repertoireId,
+                        mode: "edit",
+                      })
+                    }
+                    style={styles.heroIconButton}
+                  />
+                </View>
+              ) : null}
             </View>
 
             <Text style={styles.heroEyebrow}>Repertório</Text>
@@ -808,16 +813,18 @@ export default function RepertoireDetailScreen({ navigation, route }: Props) {
               </Text>
             </View>
 
-            <Button
-              mode="contained-tonal"
-              icon="plus"
-              onPress={openAddSongModal}
-              style={styles.newButton}
-              buttonColor={DS.colors.tint}
-              textColor={DS.colors.primary}
-            >
-              Música
-            </Button>
+            {!readOnly ? (
+              <Button
+                mode="contained-tonal"
+                icon="plus"
+                onPress={openAddSongModal}
+                style={styles.newButton}
+                buttonColor={DS.colors.tint}
+                textColor={DS.colors.primary}
+              >
+                Música
+              </Button>
+            ) : null}
           </View>
 
           {(data.songs || []).length === 0 ? (
@@ -837,17 +844,19 @@ export default function RepertoireDetailScreen({ navigation, route }: Props) {
                 preparar este repertório.
               </Text>
 
-              <Button
-                mode="contained"
-                icon="plus"
-                onPress={openAddSongModal}
-                style={styles.emptyButton}
-                contentStyle={{ height: 48 }}
-                buttonColor={DS.colors.primary}
-                textColor="#fff"
-              >
-                Adicionar música
-              </Button>
+              {!readOnly ? (
+                <Button
+                  mode="contained"
+                  icon="plus"
+                  onPress={openAddSongModal}
+                  style={styles.emptyButton}
+                  contentStyle={{ height: 48 }}
+                  buttonColor={DS.colors.primary}
+                  textColor="#fff"
+                >
+                  Adicionar música
+                </Button>
+              ) : null}
             </Surface>
           ) : (
             (data.songs || []).map((song, index) => (
@@ -856,50 +865,54 @@ export default function RepertoireDetailScreen({ navigation, route }: Props) {
                 song={song}
                 index={index}
                 onOpenUrl={openUrl}
-                onRemove={removeSong}
+                onRemove={readOnly ? undefined : removeSong}
               />
             ))
           )}
 
-          <Surface elevation={0} style={styles.dangerCard}>
-            <View style={styles.dangerInfo}>
-              <View style={styles.dangerIcon}>
-                <Icon
-                  source="trash-can-outline"
-                  size={22}
-                  color={DS.colors.danger}
-                />
+          {!readOnly ? (
+            <Surface elevation={0} style={styles.dangerCard}>
+              <View style={styles.dangerInfo}>
+                <View style={styles.dangerIcon}>
+                  <Icon
+                    source="trash-can-outline"
+                    size={22}
+                    color={DS.colors.danger}
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.dangerTitle}>Excluir repertório</Text>
+
+                  <Text style={styles.dangerText}>
+                    Remove o repertório e suas músicas vinculadas.
+                  </Text>
+                </View>
               </View>
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.dangerTitle}>Excluir repertório</Text>
-
-                <Text style={styles.dangerText}>
-                  Remove o repertório e suas músicas vinculadas.
-                </Text>
-              </View>
-            </View>
-
-            <Button
-              mode="outlined"
-              textColor={DS.colors.danger}
-              onPress={removeRepertoire}
-              style={styles.deleteButton}
-            >
-              Excluir
-            </Button>
-          </Surface>
+              <Button
+                mode="outlined"
+                textColor={DS.colors.danger}
+                onPress={removeRepertoire}
+                style={styles.deleteButton}
+              >
+                Excluir
+              </Button>
+            </Surface>
+          ) : null}
 
           <View style={{ height: 84 }} />
         </ScrollView>
 
-        <FAB
-          icon="plus"
-          label="Música"
-          onPress={openAddSongModal}
-          style={styles.fab}
-          color="#fff"
-        />
+        {!readOnly ? (
+          <FAB
+            icon="plus"
+            label="Música"
+            onPress={openAddSongModal}
+            style={styles.fab}
+            color="#fff"
+          />
+        ) : null}
       </View>
 
       <Portal>

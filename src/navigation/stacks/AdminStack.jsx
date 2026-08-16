@@ -17,6 +17,7 @@ import EventsSelectMinistryScreen from "../../screens/admin/EventsSelectMinistry
 import EventsSelectPeopleScreen from "../../screens/admin/EventsSelectPeopleScreen";
 import EventsPreviewScreen from "../../screens/admin/EventsPreviewScreen";
 import EventComposerScreen from "../../screens/admin/EventComposerScreen";
+import EventStatisticsScreen from "../../screens/admin/EventStatisticsScreen";
 
 import CellsManageScreen from "../../screens/admin/CellsManageScreen";
 import NewsComposerScreen from "../../screens/admin/NewsComposerScreen";
@@ -131,6 +132,14 @@ export default function AdminStack() {
         component={EventsPreviewScreen}
         options={{
           title: "Prévia",
+        }}
+      />
+
+      <Stack.Screen
+        name="EventStatistics"
+        component={EventStatisticsScreen}
+        options={{
+          title: "Estatísticas do evento",
         }}
       />
 

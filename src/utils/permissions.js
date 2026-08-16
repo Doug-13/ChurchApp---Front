@@ -54,6 +54,8 @@ export const PERMISSION_KEYS = [
   "canEditEvent",
   "canDeleteEvent",
   "canManageEventScales",
+  "canViewEventStatistics",
+  "canManageEventStatistics",
 
   // Avisos / Notícias
   "canViewNews",
@@ -179,6 +181,8 @@ function getBasePermissions(rawRole) {
     canEditEvent:         weight >= ROLE_WEIGHT.LEADER,
     canDeleteEvent:       weight >= ROLE_WEIGHT.ADMIN,
     canManageEventScales: weight >= ROLE_WEIGHT.ADMIN,
+    canViewEventStatistics: weight >= ROLE_WEIGHT.ADMIN,
+    canManageEventStatistics: weight >= ROLE_WEIGHT.ADMIN,
 
     // ── Avisos / Notícias ─────────────────────────────────────────────────────
     canViewNews:    true,                               // todos os membros ativos

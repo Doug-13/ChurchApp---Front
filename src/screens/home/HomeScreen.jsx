@@ -71,6 +71,14 @@ const ALL_QUICK_ACTIONS = [
     adminOnly: true,
   },
   {
+    icon: "music-circle-outline",
+    label: "Cante com a gente",
+    route: "SingWithUs",
+    color: "#EC4899",
+    bg: "#FCE7F3",
+    adminOnly: false,
+  },
+  {
     icon: "dots-horizontal",
     label: "Mais",
     route: "MoreTab",
@@ -849,8 +857,15 @@ export default function HomeScreen({ navigation }) {
       if (!qa?.route) return;
 
       // Telas registradas dentro do próprio HomeStack
-      if (qa.route === "MembersManage" || qa.route === "Birthdays") {
-        navigation.navigate(qa.route);
+      if (
+        qa.route === "MembersManage" ||
+        qa.route === "Birthdays" ||
+        qa.route === "SingWithUs"
+      ) {
+        navigation.navigate(qa.route, {
+          churchId: church?.id,
+          publicOnly: true,
+        });
         return;
       }
 
@@ -865,7 +880,7 @@ export default function HomeScreen({ navigation }) {
 
       nav.navigate(qa.route);
     },
-    [navigation]
+    [church?.id, navigation]
   );
 
   // ── Carregamento de dados ────────────────────────────────────────────────────
