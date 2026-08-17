@@ -24,7 +24,6 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import ImagePicker from "react-native-image-crop-picker";
-import storage from "@react-native-firebase/storage";
 import { getAuth } from "@react-native-firebase/auth";
 import {
   Avatar,
@@ -39,6 +38,7 @@ import {
 } from "react-native-paper";
 import { useAuth } from "../../context/AuthContext";
 import { API_BASE_URL } from "../../config/api";
+import { uploadFile } from "../../services/files";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -421,63 +421,45 @@ function unwrapApiData(response) {
 async function deleteCoverImage(url) {
   if (!url || !isHttpUrl(url)) return;
 
-  try {
-    await storage().refFromURL(url).delete();
+  // A exclusão direta do Firebase Storage foi removida.
+  // Para objetos R2, a exclusão correta deve usar a key persistida no banco.
+  if (url.includes("firebasestorage.googleapis.com")) {
+    if (__DEV__) {
+      console.log("ℹ️ [R2] capa legada do Firebase mantida:", url);
+    }
+    return;
+  }
 
-    if (__DEV__) {
-      console.log("🗑️ [Storage] Capa antiga deletada:", url);
-    }
-  } catch (error) {
-    if (__DEV__) {
-      console.log(
-        "⚠️ [Storage] Não foi possível deletar capa antiga:",
-        error?.message,
-      );
-    }
+  if (__DEV__) {
+    console.log("ℹ️ [R2] capa anterior não removida automaticamente; não há key persistida.");
   }
 }
 
 async function uploadCoverImage(localUri, newsId, uid, onProgress) {
-  let uploadUri = localUri;
+  if (!localUri) return null;
 
-  if (Platform.OS === "ios") {
-    uploadUri = localUri.replace(/^file:\/\//, "");
-  } else if (!uploadUri.startsWith("file://") && uploadUri.startsWith("/")) {
-    uploadUri = `file://${uploadUri}`;
+  onProgress?.(10);
+
+  const uploaded = await uploadFile({
+    uri: localUri,
+    name: `news-${newsId || "new"}-${uid}-${Date.now()}.jpg`,
+    type: "image/jpeg",
+  });
+
+  onProgress?.(100);
+
+  if (!uploaded?.url) {
+    throw new Error("O servidor não retornou a URL da capa.");
   }
 
-  const suffix = `news_${newsId || "new"}_${uid}_${Date.now()}.jpg`;
-  const storagePath = `images/news/covers/${suffix}`;
-
   if (__DEV__) {
-    console.log("📤 [Storage] Upload capa:", {
-      uploadUri,
-      storagePath,
+    console.log("✅ [R2] Capa enviada:", {
+      path: uploaded.path,
+      key: uploaded.key,
     });
   }
 
-  const ref = storage().ref(storagePath);
-  const task = ref.putFile(uploadUri);
-
-  task.on("state_changed", (snap) => {
-    const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-
-    if (__DEV__) {
-      console.log(`📤 [Storage] ${pct}%`);
-    }
-
-    onProgress?.(pct);
-  });
-
-  await task;
-
-  const url = await ref.getDownloadURL();
-
-  if (__DEV__) {
-    console.log("✅ [Storage] Capa enviada:", url);
-  }
-
-  return url;
+  return uploaded.url;
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────

@@ -25,11 +25,11 @@ import {
 } from "react-native-paper";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { getAuth } from "@react-native-firebase/auth";
-import storage from "@react-native-firebase/storage";
 import ImagePicker from "react-native-image-crop-picker";
 import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 import { useTerms } from "../../context/TerminologyContext";
+import { uploadFile } from "../../services/files";
 
 // ─── Design System ───────────────────────────────────────────────────────────
 const NAVY        = "#1A2366";
@@ -448,14 +448,26 @@ export default function CellCreateScreen({ navigation, route }) {
   const uploadCellCoverIfNeeded = useCallback(async (localPathOrUrl) => {
     if (!localPathOrUrl) return null;
     if (/^https?:\/\//i.test(localPathOrUrl)) return localPathOrUrl;
-    if (!churchId) throw new Error(`Nenhuma igreja ativa encontrada para salvar a imagem da ${t.cell.toLowerCase()}.`);
-    let uploadUri = localPathOrUrl;
-    if (Platform.OS === "ios" && uploadUri.startsWith("file://")) uploadUri = uploadUri.replace("file://", "");
-    const fileName    = `cell-cover-${Date.now()}.jpg`;
-    const storagePath = `images/churches/${churchId}/cells/${fileName}`;
-    const ref         = storage().ref(storagePath);
-    await ref.putFile(uploadUri, { contentType: "image/jpeg" });
-    return await ref.getDownloadURL();
+    if (!churchId) {
+      throw new Error(`Nenhuma igreja ativa encontrada para salvar a imagem da ${t.cell.toLowerCase()}.`);
+    }
+
+    const uploaded = await uploadFile({
+      uri: localPathOrUrl,
+      name: `cell-${churchId}-cover-${Date.now()}.jpg`,
+      type: "image/jpeg",
+    });
+
+    if (!uploaded?.url) {
+      throw new Error(`O servidor não retornou a URL da imagem da ${t.cell.toLowerCase()}.`);
+    }
+
+    console.log("🟩 [R2] capa da célula/grupo enviada:", {
+      path: uploaded.path,
+      key: uploaded.key,
+    });
+
+    return uploaded.url;
   }, [churchId, t.cell]);
 
   const removeCoverImage = useCallback(() => { setCoverImageUrl(""); setCoverImagePath(""); }, []);
@@ -532,10 +544,6 @@ export default function CellCreateScreen({ navigation, route }) {
       setCoverImagePath("");
       setTimeout(() => navigation?.goBack?.(), 450);
     } catch (e) {
-      if (e?.code === "storage/unauthorized") {
-        setError("Não foi possível enviar a imagem. O Firebase Storage bloqueou o envio. Verifique as regras do Storage.");
-        return;
-      }
       setError(e?.message || (isEditMode ? `Erro ao editar ${t.cell.toLowerCase()}.` : `Erro ao criar ${t.cell.toLowerCase()}.`));
     } finally {
       setSaving(false);
@@ -675,7 +683,7 @@ export default function CellCreateScreen({ navigation, route }) {
                     {safeStr(name) || `Nome da ${t.cell.toLowerCase()}`}  {/* "Nome do grupo" */}
                   </Text>
                   <Text style={styles.mutedText}>
-                    A foto será enviada ao Firebase Storage somente quando você tocar em "{labelSaveBtn}".
+                    A foto será enviada ao Cloudflare R2 somente quando você tocar em "{labelSaveBtn}".
                   </Text>
                   {hasPhoto && (
                     <Button mode="outlined" compact icon="trash-can-outline" onPress={removeCoverImage} disabled={saving}

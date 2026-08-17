@@ -9,6 +9,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { theme } from "./theme/index";
 import { AuthProvider } from "./src/context/AuthContext";
+import PushNotificationsBootstrap from "./src/components/PushNotificationsBootstrap";
 
 export default function App() {
   const navTheme = React.useMemo(
@@ -24,13 +25,15 @@ export default function App() {
         notification: theme.colors.error,
       },
     }),
-    []
+    [],
   );
 
   return (
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
         <AuthProvider>
+          <PushNotificationsBootstrap />
+
           <NavigationContainer theme={navTheme}>
             <RootNavigator />
           </NavigationContainer>

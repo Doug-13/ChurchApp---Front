@@ -26,10 +26,10 @@ import {
   TextInput,
   useTheme,
 } from "react-native-paper";
-import storage from "@react-native-firebase/storage";
 import { getAuth } from "@react-native-firebase/auth";
 import { launchImageLibrary } from "react-native-image-picker";
 import { useAuth } from "../../context/AuthContext";
+import { uploadFile } from "../../services/files";
 
 // ─── Design System ────────────────────────────────────────────────────────────
 // Alinhado ao Design Manual ChurchApp (navy #1A2366, brand #4158D0)
@@ -216,40 +216,56 @@ async function pickMultipleImagesFromLibrary(limit = 6) {
 }
 
 async function deleteStorageImageIfNeeded(url) {
-  if (!url || !isHttpUrl(url) || !isFirebaseStorageUrl(url)) return;
-  try { await storage().refFromURL(url).delete(); console.log("🗑️ [Storage] removida:", url); }
-  catch (e) { console.log("⚠️ [Storage] não removida:", e?.code); }
+  if (!url || !isHttpUrl(url)) return;
+
+  // URLs antigas do Firebase continuam válidas enquanto o arquivo legado existir.
+  // O front não possui mais credenciais/permissões do Firebase Storage para excluí-las.
+  // A limpeza dos arquivos legados deve ser feita por um script de migração no backend.
+  if (isFirebaseStorageUrl(url)) {
+    console.log("ℹ️ [R2] arquivo legado do Firebase mantido:", url);
+    return;
+  }
+
+  console.log("ℹ️ [R2] exclusão pelo URL ignorada. Para excluir no R2 é necessário armazenar a key do objeto.");
 }
 
 async function uploadFileToStorage({ localUri, churchId, eventIdOrTemp, kind = "gallery", onProgress }) {
   if (!localUri) return null;
-  const fbUser = getAuth().currentUser;
-  if (!fbUser?.uid) throw new Error("Usuário não autenticado no Firebase.");
 
   const ext = guessExtension(localUri);
-  const ct  = guessContentType(localUri);
-  const filename = `${kind}-${Date.now()}.${ext}`;
-  const storagePath = `images/events/${churchId}/${eventIdOrTemp}/${kind}/${filename}`;
+  const contentType = guessContentType(localUri);
 
-  console.log("🟦 [Storage] upload →", { kind, storagePath });
+  // O endpoint atual do R2 aceita jpeg/png/webp.
+  // HEIC é enviado como JPEG somente quando o picker já tiver convertido o arquivo.
+  const safeContentType = contentType === "image/heic" ? "image/jpeg" : contentType;
+  const safeExt = ext === "heic" ? "jpg" : ext;
+  const filename = `event-${eventIdOrTemp}-${kind}-${Date.now()}.${safeExt}`;
 
-  const ref  = storage().ref(storagePath);
-  const task = ref.putFile(normalizeFileUri(localUri), {
-    contentType: ct,
-    customMetadata: { churchId, eventId: eventIdOrTemp, uploadedBy: fbUser.uid, kind },
+  console.log("🟦 [R2] upload evento →", {
+    churchId,
+    eventIdOrTemp,
+    kind,
+    filename,
+    contentType: safeContentType,
   });
 
-  task.on("state_changed", (snap) => {
-    if (!snap.totalBytes) return;
-    const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-    console.log(`📤 [Storage] ${kind}: ${pct}%`);
-    onProgress?.(pct);
+  onProgress?.(10);
+
+  const uploaded = await uploadFile({
+    uri: localUri,
+    name: filename,
+    type: safeContentType,
   });
 
-  await task;
-  const url = await ref.getDownloadURL();
-  console.log("🟩 [Storage] concluído:", { kind, url });
-  return url;
+  onProgress?.(100);
+
+  console.log("🟩 [R2] upload concluído:", {
+    kind,
+    path: uploaded?.path,
+    key: uploaded?.key,
+  });
+
+  return uploaded?.url || null;
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────

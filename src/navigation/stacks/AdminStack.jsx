@@ -18,6 +18,7 @@ import EventsSelectPeopleScreen from "../../screens/admin/EventsSelectPeopleScre
 import EventsPreviewScreen from "../../screens/admin/EventsPreviewScreen";
 import EventComposerScreen from "../../screens/admin/EventComposerScreen";
 import EventStatisticsScreen from "../../screens/admin/EventStatisticsScreen";
+import EventStatisticsDashboardScreen from "../../screens/admin/EventStatisticsDashboardScreen";
 
 import CellsManageScreen from "../../screens/admin/CellsManageScreen";
 import NewsComposerScreen from "../../screens/admin/NewsComposerScreen";
@@ -143,6 +144,14 @@ export default function AdminStack() {
         }}
       />
 
+      <Stack.Screen
+        name="EventStatisticsDashboard"
+        component={EventStatisticsDashboardScreen}
+        options={{
+          title: "Estatísticas de eventos",
+        }}
+      />
+
       {/* ── Células ─────────────────────────────────────────────────── */}
 
       <Stack.Screen
@@ -256,4 +265,3 @@ export default function AdminStack() {
     </Stack.Navigator>
   );
 }
-

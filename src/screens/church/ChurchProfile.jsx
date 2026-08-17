@@ -23,11 +23,11 @@ import {
 } from "react-native-paper";
 import { useIsFocused } from "@react-navigation/native";
 import ImagePicker from "react-native-image-crop-picker";
-import storage from "@react-native-firebase/storage";
 import { getAuth } from "@react-native-firebase/auth";
 
 import { API_BASE_URL } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
+import { uploadFile } from "../../services/files";
 
 // ─── Design tokens — alinhados ao Design Manual ChurchApp ─────────────────────
 const NAVY        = "#1A2366";   // Hero bg, títulos de seção, texto principal
@@ -100,33 +100,42 @@ async function authedFetch(path, { method = "GET", body } = {}, authCtx) {
 
 async function deleteOldLogoIfNeeded(oldUrl, newUrl) {
   const old = safeStr(oldUrl);
-  if (!old || !isHttpUrl(old) || !isFirebase(old) || old === safeStr(newUrl)) return;
-  try {
-    await storage().refFromURL(old).delete();
-    console.log("🗑️ [Storage] logo antigo removido:", old);
-  } catch (e) {
-    console.log("⚠️ [Storage] não foi possível remover logo antigo:", e?.code);
+  if (!old || old === safeStr(newUrl)) return;
+
+  // Durante a migração, URLs antigas do Firebase são mantidas.
+  // A exclusão segura exige a key do objeto no R2 ou uma rotina backend.
+  if (isFirebase(old)) {
+    console.log("ℹ️ [R2] logo legado do Firebase mantido:", old);
+    return;
   }
+
+  console.log("ℹ️ [R2] logo anterior não removido automaticamente; não há key persistida.");
 }
 
 async function uploadLogoToStorage(localUri, churchId, uid, onProgress) {
   const uploadUri = normalizeUploadUri(localUri);
   if (!uploadUri) throw new Error("Imagem inválida para envio.");
-  const storagePath = `images/churches/${churchId}/logo-${Date.now()}.jpg`;
-  console.log("🟦 [Storage] upload logo →", storagePath);
-  const ref  = storage().ref(storagePath);
-  const task = ref.putFile(uploadUri, {
-    contentType: "image/jpeg",
-    customMetadata: { churchId, uploadedBy: uid, source: "church-profile" },
+
+  onProgress?.(10);
+
+  const uploaded = await uploadFile({
+    uri: uploadUri,
+    name: `church-${churchId}-logo-${Date.now()}.jpg`,
+    type: "image/jpeg",
   });
-  task.on("state_changed", (snap) => {
-    if (!snap.totalBytes) return;
-    onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+
+  onProgress?.(100);
+
+  if (!uploaded?.url) {
+    throw new Error("O servidor não retornou a URL do logo.");
+  }
+
+  console.log("🟩 [R2] logo concluído:", {
+    path: uploaded.path,
+    key: uploaded.key,
   });
-  await task;
-  const url = await ref.getDownloadURL();
-  console.log("🟩 [Storage] logo concluído:", url);
-  return url;
+
+  return uploaded.url;
 }
 
 function buildAddressLine(addr, church) {

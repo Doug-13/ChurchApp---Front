@@ -6,7 +6,7 @@ import { getAuth, getIdToken } from "@react-native-firebase/auth";
 import auth from "@react-native-firebase/auth";
 
 // ─── Configuração única de ambiente ───────────────────────────
-const MODE = "local"; // 'local' | 'online'
+const MODE = "online"; // 'local' | 'online'
 
 export const API_BASE_URL =
   MODE === "local"

@@ -15,12 +15,12 @@ import {
 } from "react-native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import storage from "@react-native-firebase/storage";
 import { getAuth, updateProfile } from "@react-native-firebase/auth";
 import { useIsFocused } from "@react-navigation/native";
 import ImagePicker from "react-native-image-crop-picker";
 
 import { useAuth } from "../../context/AuthContext";
+import { uploadFile } from "../../services/files";
 
 // ============================================================================
 // Design Tokens
@@ -677,33 +677,23 @@ export default function ProfileEditScreen({ navigation }) {
   }, [name, phone]);
 
   const deleteOldPhotoIfNeeded = useCallback(async (oldUrl, newLocalPathOrUrl) => {
-    if (!oldUrl) return;
+    if (!oldUrl || oldUrl === newLocalPathOrUrl) return;
 
-    const oldIsUrl = /^https?:\/\//i.test(oldUrl);
-    const newIsSameUrl = oldUrl === newLocalPathOrUrl;
-    const isFirebaseStorageUrl = oldUrl.includes("firebasestorage.googleapis.com");
-
-    if (!oldIsUrl || newIsSameUrl || !isFirebaseStorageUrl) return;
-
-    try {
-      console.log("🟨 [Storage] tentando remover foto antiga:", oldUrl);
-
-      await storage().refFromURL(oldUrl).delete();
-
-      console.log("🗑️ [Storage] foto antiga removida.");
-    } catch (err) {
-      console.log("⚠️ [Storage] não foi possível remover foto antiga. Ignorado:", {
-        code: err?.code,
-        message: err?.message,
-      });
+    // O front não exclui mais diretamente do Firebase Storage.
+    // URLs legadas serão limpas posteriormente por rotina de migração/backend.
+    if (oldUrl.includes("firebasestorage.googleapis.com")) {
+      console.log("ℹ️ [R2] foto legada do Firebase mantida:", oldUrl);
+      return;
     }
+
+    console.log("ℹ️ [R2] foto anterior não removida automaticamente; não há key persistida.");
   }, []);
 
   const uploadNewPhotoIfNeeded = useCallback(async (localPathOrUrl, uid) => {
     if (!localPathOrUrl) return null;
 
     if (/^https?:\/\//i.test(localPathOrUrl)) {
-      console.log("ℹ️ [Storage] imagem já é URL, upload ignorado:", localPathOrUrl);
+      console.log("ℹ️ [R2] imagem já é URL, upload ignorado:", localPathOrUrl);
       return localPathOrUrl;
     }
 
@@ -711,31 +701,22 @@ export default function ProfileEditScreen({ navigation }) {
       throw new Error("Usuário Firebase sem UID. Faça login novamente.");
     }
 
-    let uploadUri = localPathOrUrl;
-
-    if (Platform.OS === "ios" && uploadUri.startsWith("file://")) {
-      uploadUri = uploadUri.replace("file://", "");
-    }
-
-    const fileName = `profile-${Date.now()}.jpg`;
-    const storagePath = `images/users/${uid}/${fileName}`;
-
-    console.log("🟦 [Storage] preparando upload da foto");
-    console.log("🟦 [Storage] uid:", uid);
-    console.log("🟦 [Storage] uploadUri:", uploadUri);
-    console.log("🟦 [Storage] storagePath:", storagePath);
-
-    const ref = storage().ref(storagePath);
-
-    await ref.putFile(uploadUri, {
-      contentType: "image/jpeg",
+    const uploaded = await uploadFile({
+      uri: localPathOrUrl,
+      name: `profile-${uid}-${Date.now()}.jpg`,
+      type: "image/jpeg",
     });
 
-    const downloadUrl = await ref.getDownloadURL();
+    if (!uploaded?.url) {
+      throw new Error("O servidor não retornou a URL da nova foto.");
+    }
 
-    console.log("🟩 [Storage] nova foto enviada:", downloadUrl);
+    console.log("🟩 [R2] nova foto enviada:", {
+      path: uploaded.path,
+      key: uploaded.key,
+    });
 
-    return downloadUrl;
+    return uploaded.url;
   }, []);
 
   const handleImagePick = useCallback(() => {
@@ -812,19 +793,13 @@ export default function ProfileEditScreen({ navigation }) {
         try {
           finalPhotoUrl = await uploadNewPhotoIfNeeded(selectedPhoto, user.uid);
         } catch (uploadErr) {
-          console.log("🟥 [Storage] Upload falhou:", {
+          console.log("🟥 [R2] Upload falhou:", {
             code: uploadErr?.code,
             message: uploadErr?.message,
             nativeErrorMessage: uploadErr?.nativeErrorMessage,
             serverResponse: uploadErr?.serverResponse,
             stack: uploadErr?.stack,
           });
-
-          if (uploadErr?.code === "storage/unauthorized") {
-            throw new Error(
-              "Não foi possível enviar a foto. O Firebase Storage bloqueou o envio. Verifique as regras do Storage."
-            );
-          }
 
           throw new Error("Não foi possível enviar a foto. Tente novamente.");
         }
@@ -834,7 +809,7 @@ export default function ProfileEditScreen({ navigation }) {
         try {
           await deleteOldPhotoIfNeeded(oldPhotoUrl, finalPhotoUrl);
         } catch (err) {
-          console.log("⚠️ [Storage] delete antigo ignorado:", {
+          console.log("⚠️ [R2] limpeza da foto antiga ignorada:", {
             code: err?.code,
             message: err?.message,
           });

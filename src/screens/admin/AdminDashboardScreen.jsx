@@ -1119,7 +1119,7 @@ export default function AdminDashboardScreen({
               tc={tc}
               onPress={() =>
                 navigation.navigate(
-                  "Reports",
+                  "EventStatisticsDashboard",
                 )
               }
             />
